@@ -15,10 +15,9 @@ import Json.Decode exposing (Value)
 import Length exposing (Meters)
 import Pixels
 import Point3d exposing (Point3d)
-import Quantity
+import Quantity exposing (Quantity)
 import Scene3d
 import Scene3d.Material exposing (Material)
-import Speed
 import Sphere3d
 import Vector3d
 import Viewpoint3d
@@ -41,7 +40,8 @@ type alias Model =
 type alias Tank =
     { forward : Angle
     , position : Point3d Meters World
-    , rotation : Angle
+    , cannonRotation : Angle
+    , cannonPitch : Angle
     }
 
 
@@ -54,7 +54,8 @@ init () =
     ( { tank =
             { forward = Angle.degrees 0
             , position = Point3d.origin
-            , rotation = Angle.degrees 0
+            , cannonRotation = Angle.degrees 0
+            , cannonPitch = Angle.degrees 0
             }
       }
     , Cmd.none
@@ -68,13 +69,14 @@ subscriptions _ =
 
 type Msg
     = NoOp
-      -- | Move DirectionGame
     | KeyPress Value
 
 
-type DirectionGame
-    = Forward
-    | Reverse
+type GameAction
+    = MoveForward
+    | MoveBackward
+    | RotateClockwise
+    | RotateCounterClockwise
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -85,54 +87,66 @@ update msg model =
 
         KeyPress value ->
             case Json.Decode.decodeValue decodeMove value |> Debug.log "decode" of
-                Err err ->
+                Err _ ->
                     ( model, Cmd.none )
 
-                Ok direction ->
-                    let
-                        tank =
-                            model.tank
-                    in
-                    ( { model
-                        | tank =
-                            { tank
-                                | position =
-                                    let
-                                        frame =
-                                            Frame3d.atPoint tank.position
-                                                |> Frame3d.rotateAround Axis3d.z tank.forward
+                Ok MoveForward ->
+                    ( { model | tank = moveTank 1.0 model.tank }
+                    , Cmd.none
+                    )
 
-                                        dir =
-                                            Vector3d.xyzIn frame
-                                                (Length.meters
-                                                    (case direction of
-                                                        Forward ->
-                                                            1.0
+                Ok MoveBackward ->
+                    ( { model | tank = moveTank -1.0 model.tank }
+                    , Cmd.none
+                    )
 
-                                                        Reverse ->
-                                                            -1.0
-                                                    )
-                                                )
-                                                (Length.meters 0.0)
-                                                (Length.meters 0.0)
-                                    in
-                                    Point3d.translateBy dir tank.position
-                            }
-                      }
+                Ok RotateClockwise ->
+                    ( { model | tank = rotateTank 1.0 model.tank }
+                    , Cmd.none
+                    )
+
+                Ok RotateCounterClockwise ->
+                    ( { model | tank = rotateTank -1.0 model.tank }
                     , Cmd.none
                     )
 
 
-decodeMove : Json.Decode.Decoder DirectionGame
+moveTank : Float -> Tank -> Tank
+moveTank magnitude tank =
+    { tank
+        | position =
+            Point3d.translateBy
+                (Vector3d.meters magnitude 0.0 0.0
+                    |> Vector3d.rotateAround Axis3d.z tank.forward
+                )
+                tank.position
+    }
+
+
+rotateTank : Float -> Tank -> Tank
+rotateTank magnitude tank =
+    { tank
+        | forward =
+            Quantity.plus tank.forward (Angle.degrees (magnitude * 45.0))
+    }
+
+
+decodeMove : Json.Decode.Decoder GameAction
 decodeMove =
     Json.Decode.andThen
         (\key ->
             case Debug.log "key" key of
                 "w" ->
-                    Json.Decode.succeed Forward
+                    Json.Decode.succeed MoveForward
 
                 "s" ->
-                    Json.Decode.succeed Reverse
+                    Json.Decode.succeed MoveBackward
+
+                "d" ->
+                    Json.Decode.succeed RotateCounterClockwise
+
+                "a" ->
+                    Json.Decode.succeed RotateClockwise
 
                 _ ->
                     Json.Decode.fail "Other key"
@@ -150,20 +164,6 @@ view model =
 game3dScene : Model -> Html Msg
 game3dScene model =
     let
-        -- Define a blue nonmetal (plastic or similar) material
-        material : Material coordinates { a | normals : () }
-        material =
-            Scene3d.Material.nonmetal
-                { baseColor = Color.lightBlue
-                , roughness = 0.4 -- varies from 0 (mirror-like) to 1 (matte)
-                }
-
-        -- Create a sphere entity using the defined material
-        sphereEntity : Scene3d.Entity coordinates
-        sphereEntity =
-            Scene3d.sphere material <|
-                Sphere3d.withRadius (Length.meters 5) Point3d.origin
-
         -- Define a camera as usual
         camera : Camera3d Meters coordinates
         camera =
@@ -190,24 +190,15 @@ game3dScene model =
                 (Point3d.fromMeters { x = 10, y = 10, z = 0 })
                 (Point3d.fromMeters { x = 10, y = -10, z = 0 })
     in
-    -- Use the preset 'Scene3d.sunny' which handles most of the lighting details
-    -- for us (creates one direct light source approximating sunlight, and
-    -- another soft light source representing sky light and light reflected from
-    -- surrounding objects)
     Scene3d.sunny
         { camera = camera
         , clipDepth = Length.centimeters 0.5
-        , dimensions = ( Pixels.int 800, Pixels.int 600 )
+        , dimensions = ( Pixels.int 1200, Pixels.int 720 )
         , background = Scene3d.backgroundColor Color.black
         , entities =
             [ ground
-
-            -- , sphereEntity
             , viewTank model.tank
             ]
-
-        -- Specify that sunlight should not cast shadows (since we wouldn't see
-        -- them anyways in this scene)
         , shadows = True
 
         -- Specify the global up direction (this controls the orientation of
@@ -220,18 +211,33 @@ game3dScene model =
         }
 
 
+viewTank : Tank -> Scene3d.Entity World
 viewTank tank =
     let
         material =
-            Scene3d.Material.metal { baseColor = Color.blue, roughness = 0.5 }
+            Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
+
+        generalPosition : Frame3d.Frame3d Meters World defines2
+        generalPosition =
+            Frame3d.atPoint Point3d.origin
+                |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) tank.forward
+                |> Frame3d.translateBy (Vector3d.from Point3d.origin tank.position)
+
+        -- (Point3d.translateIn Direction3d.positiveZ (Length.meters 0.5) tank.position)
+        topPosition : Frame3d.Frame3d Meters World defines2
+        topPosition =
+            Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.5) generalPosition
+
+        cannonPosition =
+            generalPosition
+                |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
+                |> Frame3d.translateIn (Direction3d.xy tank.forward) (Length.meters 0.5)
     in
     Scene3d.group
         [ Scene3d.blockWithShadow
             material
             (Block3d.centeredOn
-                (Frame3d.atPoint
-                    (Point3d.translateIn Direction3d.positiveZ (Length.meters 0.5) tank.position)
-                )
+                generalPosition
                 ( Length.meters 2.0
                 , Length.meters 1.0
                 , Length.meters 0.5
@@ -239,11 +245,22 @@ viewTank tank =
             )
         , Scene3d.cylinderWithShadow
             material
-            (Cylinder3d.centeredOn
-                (Point3d.translateIn Direction3d.positiveZ (Length.meters 1) tank.position)
+            (Cylinder3d.startingAt
+                Point3d.origin
                 Direction3d.positiveZ
                 { radius = Length.meters 0.5
                 , length = Length.meters 0.25
                 }
+                |> Cylinder3d.placeIn topPosition
+            )
+        , Scene3d.cylinderWithShadow
+            material
+            (Cylinder3d.startingAt
+                Point3d.origin
+                Direction3d.positiveX
+                { radius = Length.meters 0.125
+                , length = Length.meters 1.0
+                }
+                |> Cylinder3d.placeIn cannonPosition
             )
         ]
