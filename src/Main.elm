@@ -1,5 +1,6 @@
 module Main exposing (main)
 
+import Acceleration
 import Angle exposing (Angle)
 import Axis3d
 import Block3d
@@ -9,11 +10,17 @@ import Camera3d exposing (Camera3d)
 import Color
 import Cylinder3d
 import Direction3d
+import Duration
+import Force
 import Frame3d
 import Html exposing (Html)
 import Json.Decode exposing (Value)
 import Length exposing (Meters)
-import LineSegment3d exposing (LineSegment3d)
+import LineSegment3d
+import Mass
+import Physics.Body exposing (Body)
+import Physics.Coordinates exposing (WorldCoordinates)
+import Physics.World exposing (World)
 import Pixels
 import Point3d exposing (Point3d)
 import Quantity
@@ -36,6 +43,7 @@ main =
 
 type alias Model =
     { tickTime : Float
+    , elapsedTime : Float
     , tank : Tank
     , forwardKey : KeyPressesd
     , backwardKey : KeyPressesd
@@ -46,13 +54,14 @@ type alias Model =
     , aimCannonUp : KeyPressesd
     , aimCannonDown : KeyPressesd
     , fireCannon : KeyPressesd
-    , cannonBalls : List CannonBall
+    , lastCannonFiredAt : Float
+    , physicsWorld : World CannonBall
     }
 
 
 type alias CannonBall =
-    { position : Point3d Meters World
-    , velocity : Vector3d Meters World
+    { position : Point3d Meters WorldCoordinates
+    , velocity : Vector3d Meters WorldCoordinates
     }
 
 
@@ -63,19 +72,16 @@ type KeyPressesd
 
 type alias Tank =
     { forward : Angle
-    , position : Point3d Meters World
+    , position : Point3d Meters WorldCoordinates
     , cannonRotation : Angle
     , cannonPitch : Angle
     }
 
 
-type World
-    = World Never
-
-
 init : () -> ( Model, Cmd Msg )
 init () =
     ( { tickTime = 0
+      , elapsedTime = 0
       , tank =
             { forward = Angle.degrees 0
             , position = Point3d.origin
@@ -91,7 +97,10 @@ init () =
       , aimCannonUp = Unpressed
       , aimCannonDown = Unpressed
       , fireCannon = Unpressed
-      , cannonBalls = []
+      , lastCannonFiredAt = 0
+      , physicsWorld =
+            Physics.World.empty
+                |> Physics.World.withGravity (Acceleration.metersPerSecondSquared 9.80665) Direction3d.negativeZ
       }
     , Cmd.none
     )
@@ -136,33 +145,78 @@ applyTick model =
             remainingTickTime =
                 model.tickTime - framerate
 
-            cannonBalls otherCannonBalls =
+            ( cannonBallMaybeAdded, newLastCannonBallFireTime ) =
                 case model.fireCannon of
                     Pressed ->
-                        Point3d.origin
-                            |> Point3d.translateIn Direction3d.positiveX (Length.meters 1.5)
-                            |> Point3d.rotateAround Axis3d.y model.tank.cannonPitch
-                            |> Point3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
-                            |> Point3d.translateBy (Vector3d.from Point3d.origin model.tank.position)
-                            |> Point3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
-                            |> (\position ->
-                                    { position = position
-                                    , velocity =
-                                        Vector3d.meters 0.1 0 0
-                                            |> Vector3d.rotateAround Axis3d.y model.tank.cannonPitch
-                                            |> Vector3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
-                                    }
-                                        :: otherCannonBalls
-                               )
+                        if model.elapsedTime - model.lastCannonFiredAt > 1000 then
+                            ( model.physicsWorld
+                                |> Physics.World.add
+                                    (let
+                                        position =
+                                            Point3d.origin
+                                                |> Point3d.translateIn Direction3d.positiveX (Length.meters 1.5)
+                                                |> Point3d.rotateAround Axis3d.y model.tank.cannonPitch
+                                                |> Point3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
+                                                |> Point3d.translateBy (Vector3d.from Point3d.origin model.tank.position)
+                                                |> Point3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
+
+                                        velocity =
+                                            Vector3d.meters 0.1 0 0
+                                                |> Vector3d.rotateAround Axis3d.y model.tank.cannonPitch
+                                                |> Vector3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
+                                     in
+                                     Physics.Body.sphere
+                                        (Sphere3d.atPoint
+                                            Point3d.origin
+                                            (Length.meters 0.25)
+                                        )
+                                        { position = position
+                                        , velocity = velocity
+                                        }
+                                        |> Physics.Body.moveTo position
+                                        |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 5.5))
+                                        |> Physics.Body.applyImpulse
+                                            (Force.newtons 500
+                                                |> Quantity.times (Duration.seconds 0.5)
+                                            )
+                                            (Maybe.withDefault Direction3d.x
+                                                (Vector3d.direction
+                                                    (Vector3d.meters 0.1 0 0
+                                                        |> Vector3d.rotateAround Axis3d.y model.tank.cannonPitch
+                                                        |> Vector3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
+                                                    )
+                                                )
+                                            )
+                                            (Point3d.origin
+                                                |> Point3d.translateIn Direction3d.positiveX (Length.meters 1.5)
+                                                |> Point3d.rotateAround Axis3d.y model.tank.cannonPitch
+                                                |> Point3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
+                                                |> Point3d.translateBy (Vector3d.from Point3d.origin model.tank.position)
+                                                |> Point3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
+                                            )
+                                    )
+                            , model.elapsedTime
+                            )
+
+                        else
+                            ( model.physicsWorld, model.lastCannonFiredAt )
 
                     Unpressed ->
-                        otherCannonBalls
+                        ( model.physicsWorld, model.lastCannonFiredAt )
 
             nextModel =
                 { model
                     | tickTime = remainingTickTime
-                    , cannonBalls =
-                        cannonBalls (List.map moveCannonBall model.cannonBalls)
+                    , lastCannonFiredAt = newLastCannonBallFireTime
+                    , physicsWorld =
+                        cannonBallMaybeAdded
+                            |> Physics.World.simulate (Duration.seconds (1 / 60))
+                            |> Physics.World.keepIf
+                                (\body ->
+                                    Frame3d.originPoint (Physics.Body.frame body)
+                                        |> Point3d.zCoordinate
+                                        |> Quantity.greaterThan (Length.meters 0)
+                                )
                     , tank =
                         model.tank
                             |> moveTank
@@ -230,7 +284,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Tick deltaMs ->
-            ( applyTick { model | tickTime = model.tickTime + deltaMs }
+            ( applyTick { model | tickTime = model.tickTime + deltaMs, elapsedTime = model.elapsedTime + deltaMs }
             , Cmd.none
             )
 
@@ -425,7 +479,9 @@ game3dScene model =
                 :: Scene3d.lineSegment (Scene3d.Material.color Color.lightGreen)
                     (LineSegment3d.along Axis3d.y (Length.meters 0) (Length.meters 10))
                 :: viewTank model.tank
-                :: List.map viewCannonBall model.cannonBalls
+                :: List.map
+                    viewCannonBall
+                    (Physics.World.bodies model.physicsWorld)
         , shadows = True
 
         -- Specify the global up direction (this controls the orientation of
@@ -438,35 +494,37 @@ game3dScene model =
         }
 
 
-viewCannonBall : CannonBall -> Scene3d.Entity World
+viewCannonBall : Body CannonBall -> Scene3d.Entity WorldCoordinates
 viewCannonBall cannonBall =
     Scene3d.sphereWithShadow
         (Scene3d.Material.metal { baseColor = Color.black, roughness = 0.5 })
-        (Sphere3d.atPoint cannonBall.position (Length.meters 0.25))
+        (Sphere3d.atPoint Point3d.origin (Length.meters 0.25)
+            |> Sphere3d.placeIn (Physics.Body.frame cannonBall)
+        )
 
 
-viewTank : Tank -> Scene3d.Entity World
+viewTank : Tank -> Scene3d.Entity WorldCoordinates
 viewTank tank =
     let
         material : Scene3d.Material.Material coordinates { a | normals : () }
         material =
             Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
 
-        bodyPosition : Frame3d.Frame3d Meters World defines2
+        bodyPosition : Frame3d.Frame3d Meters WorldCoordinates defines2
         bodyPosition =
             Frame3d.atPoint Point3d.origin
                 |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) tank.forward
                 |> Frame3d.translateBy (Vector3d.from Point3d.origin tank.position)
                 |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.25)
 
-        topPosition : Frame3d.Frame3d Meters World defines2
+        topPosition : Frame3d.Frame3d Meters WorldCoordinates defines2
         topPosition =
             Frame3d.atPoint Point3d.origin
                 |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) (Quantity.plus tank.forward tank.cannonRotation)
                 |> Frame3d.translateBy (Vector3d.from Point3d.origin tank.position)
                 |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
 
-        cannonPosition : Frame3d.Frame3d Meters World defines2
+        cannonPosition : Frame3d.Frame3d Meters WorldCoordinates defines2
         cannonPosition =
             Frame3d.atPoint Point3d.origin
                 |> Frame3d.translateIn Direction3d.positiveX (Length.meters 0.5)

@@ -12416,20 +12416,68 @@ var $ianmackenzie$elm_units$Angle$radians = function (numRadians) {
 var $ianmackenzie$elm_units$Angle$degrees = function (numDegrees) {
 	return $ianmackenzie$elm_units$Angle$radians($elm$core$Basics$pi * (numDegrees / 180));
 };
+var $w0rm$elm_physics$Internal$World$Protected = function (a) {
+	return {$: 'Protected', a: a};
+};
+var $w0rm$elm_physics$Internal$Vector3$zero = {x: 0, y: 0, z: 0};
+var $w0rm$elm_physics$Physics$World$empty = $w0rm$elm_physics$Internal$World$Protected(
+	{bodies: _List_Nil, constraints: _List_Nil, contactGroups: _List_Nil, freeIds: _List_Nil, gravity: $w0rm$elm_physics$Internal$Vector3$zero, nextBodyId: 0, simulatedBodies: $elm$core$Array$empty});
+var $ianmackenzie$elm_units$Acceleration$metersPerSecondSquared = function (numMetersPerSecondSquared) {
+	return $ianmackenzie$elm_units$Quantity$Quantity(numMetersPerSecondSquared);
+};
+var $ianmackenzie$elm_geometry$Geometry$Types$Direction3d = function (a) {
+	return {$: 'Direction3d', a: a};
+};
+var $ianmackenzie$elm_geometry$Direction3d$unsafe = function (givenComponents) {
+	return $ianmackenzie$elm_geometry$Geometry$Types$Direction3d(givenComponents);
+};
+var $ianmackenzie$elm_geometry$Direction3d$negativeZ = $ianmackenzie$elm_geometry$Direction3d$unsafe(
+	{x: 0, y: 0, z: -1});
 var $ianmackenzie$elm_geometry$Geometry$Types$Point3d = function (a) {
 	return {$: 'Point3d', a: a};
 };
 var $ianmackenzie$elm_geometry$Point3d$origin = $ianmackenzie$elm_geometry$Geometry$Types$Point3d(
 	{x: 0, y: 0, z: 0});
+var $ianmackenzie$elm_units$Acceleration$inMetersPerSecondSquared = function (_v0) {
+	var numMetersPerSecondSquared = _v0.a;
+	return numMetersPerSecondSquared;
+};
+var $w0rm$elm_physics$Internal$Vector3$scale = F2(
+	function (s, v3) {
+		return {x: s * v3.x, y: s * v3.y, z: s * v3.z};
+	});
+var $ianmackenzie$elm_geometry$Direction3d$unwrap = function (_v0) {
+	var coordinates = _v0.a;
+	return coordinates;
+};
+var $w0rm$elm_physics$Physics$World$withGravity = F3(
+	function (acceleration, direction, _v0) {
+		var world = _v0.a;
+		return $w0rm$elm_physics$Internal$World$Protected(
+			_Utils_update(
+				world,
+				{
+					gravity: A2(
+						$w0rm$elm_physics$Internal$Vector3$scale,
+						$ianmackenzie$elm_units$Acceleration$inMetersPerSecondSquared(acceleration),
+						$ianmackenzie$elm_geometry$Direction3d$unwrap(direction))
+				}));
+	});
 var $author$project$Main$init = function (_v0) {
 	return _Utils_Tuple2(
 		{
 			aimCannonDown: $author$project$Main$Unpressed,
 			aimCannonUp: $author$project$Main$Unpressed,
 			backwardKey: $author$project$Main$Unpressed,
-			cannonBalls: _List_Nil,
+			elapsedTime: 0,
 			fireCannon: $author$project$Main$Unpressed,
 			forwardKey: $author$project$Main$Unpressed,
+			lastCannonFiredAt: 0,
+			physicsWorld: A3(
+				$w0rm$elm_physics$Physics$World$withGravity,
+				$ianmackenzie$elm_units$Acceleration$metersPerSecondSquared(9.80665),
+				$ianmackenzie$elm_geometry$Direction3d$negativeZ,
+				$w0rm$elm_physics$Physics$World$empty),
 			rotateCannonClockwiseKey: $author$project$Main$Unpressed,
 			rotateCannonCounterClockwiseKey: $author$project$Main$Unpressed,
 			rotateClockwiseKey: $author$project$Main$Unpressed,
@@ -12768,6 +12816,41 @@ var $author$project$Main$subscriptions = function (_v0) {
 			]));
 };
 var $author$project$Main$Pressed = {$: 'Pressed'};
+var $w0rm$elm_physics$Physics$World$add = F2(
+	function (_v0, _v1) {
+		var body = _v0.a;
+		var world = _v1.a;
+		var _v2 = world.freeIds;
+		if (!_v2.b) {
+			return $w0rm$elm_physics$Internal$World$Protected(
+				_Utils_update(
+					world,
+					{
+						bodies: A2(
+							$elm$core$List$cons,
+							_Utils_update(
+								body,
+								{id: world.nextBodyId}),
+							world.bodies),
+						nextBodyId: world.nextBodyId + 1
+					}));
+		} else {
+			var freeId = _v2.a;
+			var restFreeIds = _v2.b;
+			return $w0rm$elm_physics$Internal$World$Protected(
+				_Utils_update(
+					world,
+					{
+						bodies: A2(
+							$elm$core$List$cons,
+							_Utils_update(
+								body,
+								{id: freeId}),
+							world.bodies),
+						freeIds: restFreeIds
+					}));
+		}
+	});
 var $ianmackenzie$elm_units$Quantity$max = F2(
 	function (_v0, _v1) {
 		var x = _v0.a;
@@ -12809,6 +12892,253 @@ var $author$project$Main$aimCannon = F2(
 							tank.cannonPitch)))
 			});
 	});
+var $w0rm$elm_physics$Internal$Body$Protected = function (a) {
+	return {$: 'Protected', a: a};
+};
+var $w0rm$elm_physics$Internal$Vector3$cross = F2(
+	function (a, b) {
+		return {x: (a.y * b.z) - (a.z * b.y), y: (a.z * b.x) - (a.x * b.z), z: (a.x * b.y) - (a.y * b.x)};
+	});
+var $w0rm$elm_physics$Internal$Transform3d$originPoint = function (_v0) {
+	var localOrigin = _v0.a;
+	return localOrigin;
+};
+var $w0rm$elm_physics$Internal$Vector3$sub = F2(
+	function (a, b) {
+		return {x: a.x - b.x, y: a.y - b.y, z: a.z - b.z};
+	});
+var $w0rm$elm_physics$Internal$Body$applyImpulse = F4(
+	function (amount, direction, point, body) {
+		var relativePoint = A2(
+			$w0rm$elm_physics$Internal$Vector3$sub,
+			point,
+			$w0rm$elm_physics$Internal$Transform3d$originPoint(body.transform3d));
+		var impulse = A2($w0rm$elm_physics$Internal$Vector3$scale, amount, direction);
+		var _v0 = A2($w0rm$elm_physics$Internal$Vector3$cross, relativePoint, impulse);
+		var x = _v0.x;
+		var y = _v0.y;
+		var z = _v0.z;
+		var _v1 = body;
+		var angularVelocity = _v1.angularVelocity;
+		var invInertiaWorld = _v1.invInertiaWorld;
+		var velocity = _v1.velocity;
+		var invMass = _v1.invMass;
+		return _Utils_update(
+			body,
+			{
+				angularVelocity: {x: ((angularVelocity.x + (invInertiaWorld.m11 * x)) + (invInertiaWorld.m12 * y)) + (invInertiaWorld.m13 * z), y: ((angularVelocity.y + (invInertiaWorld.m21 * x)) + (invInertiaWorld.m22 * y)) + (invInertiaWorld.m23 * z), z: ((angularVelocity.z + (invInertiaWorld.m31 * x)) + (invInertiaWorld.m32 * y)) + (invInertiaWorld.m33 * z)},
+				velocity: {x: velocity.x + (invMass * impulse.x), y: velocity.y + (invMass * impulse.y), z: velocity.z + (invMass * impulse.z)}
+			});
+	});
+var $ianmackenzie$elm_geometry$Point3d$toMeters = function (_v0) {
+	var pointCoordinates = _v0.a;
+	return pointCoordinates;
+};
+var $w0rm$elm_physics$Physics$Body$applyImpulse = F4(
+	function (_v0, direction, point, _v1) {
+		var impulse = _v0.a;
+		var body = _v1.a;
+		return (body.mass > 0) ? $w0rm$elm_physics$Internal$Body$Protected(
+			A4(
+				$w0rm$elm_physics$Internal$Body$applyImpulse,
+				impulse,
+				$ianmackenzie$elm_geometry$Direction3d$unwrap(direction),
+				$ianmackenzie$elm_geometry$Point3d$toMeters(point),
+				body)) : $w0rm$elm_physics$Internal$Body$Protected(body);
+	});
+var $ianmackenzie$elm_geometry$Geometry$Types$Sphere3d = function (a) {
+	return {$: 'Sphere3d', a: a};
+};
+var $elm$core$Basics$abs = function (n) {
+	return (n < 0) ? (-n) : n;
+};
+var $ianmackenzie$elm_units$Quantity$abs = function (_v0) {
+	var value = _v0.a;
+	return $ianmackenzie$elm_units$Quantity$Quantity(
+		$elm$core$Basics$abs(value));
+};
+var $ianmackenzie$elm_geometry$Sphere3d$withRadius = F2(
+	function (givenRadius, givenCenterPoint) {
+		return $ianmackenzie$elm_geometry$Geometry$Types$Sphere3d(
+			{
+				centerPoint: givenCenterPoint,
+				radius: $ianmackenzie$elm_units$Quantity$abs(givenRadius)
+			});
+	});
+var $ianmackenzie$elm_geometry$Sphere3d$atPoint = F2(
+	function (givenCenterPoint, givenRadius) {
+		return A2($ianmackenzie$elm_geometry$Sphere3d$withRadius, givenRadius, givenCenterPoint);
+	});
+var $elm$core$Basics$sqrt = _Basics_sqrt;
+var $ianmackenzie$elm_geometry$Vector3d$direction = function (_v0) {
+	var v = _v0.a;
+	var largestComponent = A2(
+		$elm$core$Basics$max,
+		$elm$core$Basics$abs(v.x),
+		A2(
+			$elm$core$Basics$max,
+			$elm$core$Basics$abs(v.y),
+			$elm$core$Basics$abs(v.z)));
+	if (!largestComponent) {
+		return $elm$core$Maybe$Nothing;
+	} else {
+		var scaledZ = v.z / largestComponent;
+		var scaledY = v.y / largestComponent;
+		var scaledX = v.x / largestComponent;
+		var scaledLength = $elm$core$Basics$sqrt(((scaledX * scaledX) + (scaledY * scaledY)) + (scaledZ * scaledZ));
+		return $elm$core$Maybe$Just(
+			$ianmackenzie$elm_geometry$Geometry$Types$Direction3d(
+				{x: scaledX / scaledLength, y: scaledY / scaledLength, z: scaledZ / scaledLength}));
+	}
+};
+var $w0rm$elm_physics$Physics$Body$Dynamic = function (a) {
+	return {$: 'Dynamic', a: a};
+};
+var $w0rm$elm_physics$Physics$Body$Static = {$: 'Static'};
+var $ianmackenzie$elm_units$Mass$inKilograms = function (_v0) {
+	var numKilograms = _v0.a;
+	return numKilograms;
+};
+var $elm$core$Basics$isInfinite = _Basics_isInfinite;
+var $elm$core$Basics$isNaN = _Basics_isNaN;
+var $w0rm$elm_physics$Physics$Body$dynamic = function (kilos) {
+	var mass_ = $ianmackenzie$elm_units$Mass$inKilograms(kilos);
+	return ($elm$core$Basics$isNaN(mass_) || ($elm$core$Basics$isInfinite(mass_) || (mass_ <= 0))) ? $w0rm$elm_physics$Physics$Body$Static : $w0rm$elm_physics$Physics$Body$Dynamic(mass_);
+};
+var $ianmackenzie$elm_geometry$Point3d$fromMeters = function (givenCoordinates) {
+	return $ianmackenzie$elm_geometry$Geometry$Types$Point3d(givenCoordinates);
+};
+var $w0rm$elm_physics$Internal$Transform3d$Orientation3d = F4(
+	function (a, b, c, d) {
+		return {$: 'Orientation3d', a: a, b: b, c: c, d: d};
+	});
+var $w0rm$elm_physics$Internal$Transform3d$Transform3d = F2(
+	function (a, b) {
+		return {$: 'Transform3d', a: a, b: b};
+	});
+var $w0rm$elm_physics$Internal$Transform3d$derotate = F2(
+	function (_v0, _v1) {
+		var qx = _v0.a;
+		var qy = _v0.b;
+		var qz = _v0.c;
+		var qw = _v0.d;
+		var x = _v1.x;
+		var y = _v1.y;
+		var z = _v1.z;
+		var iz = (((-qw) * z) + (qx * y)) - (qy * x);
+		var iy = (((-qw) * y) + (qz * x)) - (qx * z);
+		var ix = (((-qw) * x) + (qy * z)) - (qz * y);
+		var iw = (((-qx) * x) - (qy * y)) - (qz * z);
+		return {x: (((ix * (-qw)) + (iw * (-qx))) + (iy * (-qz))) - (iz * (-qy)), y: (((iy * (-qw)) + (iw * (-qy))) + (iz * (-qx))) - (ix * (-qz)), z: (((iz * (-qw)) + (iw * (-qz))) + (ix * (-qy))) - (iy * (-qx))};
+	});
+var $w0rm$elm_physics$Internal$Transform3d$pointRelativeTo = F2(
+	function (_v0, worldPoint) {
+		var localOrigin = _v0.a;
+		var localOrientation = _v0.b;
+		return A2(
+			$w0rm$elm_physics$Internal$Transform3d$derotate,
+			localOrientation,
+			A2($w0rm$elm_physics$Internal$Vector3$sub, worldPoint, localOrigin));
+	});
+var $w0rm$elm_physics$Internal$Transform3d$inverse = function (transform3d) {
+	var _v0 = transform3d.b;
+	var x = _v0.a;
+	var y = _v0.b;
+	var z = _v0.c;
+	var w = _v0.d;
+	return A2(
+		$w0rm$elm_physics$Internal$Transform3d$Transform3d,
+		A2($w0rm$elm_physics$Internal$Transform3d$pointRelativeTo, transform3d, $w0rm$elm_physics$Internal$Vector3$zero),
+		A4($w0rm$elm_physics$Internal$Transform3d$Orientation3d, -x, -y, -z, w));
+};
+var $w0rm$elm_physics$Internal$Transform3d$orientation = function (_v0) {
+	var _v1 = _v0.b;
+	var x = _v1.a;
+	var y = _v1.b;
+	var z = _v1.c;
+	var w = _v1.d;
+	return {m11: (1 - ((2 * y) * y)) - ((2 * z) * z), m12: ((2 * x) * y) - ((2 * w) * z), m13: ((2 * x) * z) + ((2 * w) * y), m21: ((2 * x) * y) + ((2 * w) * z), m22: (1 - ((2 * x) * x)) - ((2 * z) * z), m23: ((2 * y) * z) - ((2 * w) * x), m31: ((2 * x) * z) - ((2 * w) * y), m32: ((2 * y) * z) + ((2 * w) * x), m33: (1 - ((2 * x) * x)) - ((2 * y) * y)};
+};
+var $w0rm$elm_physics$Internal$Vector3$add = F2(
+	function (a, b) {
+		return {x: a.x + b.x, y: a.y + b.y, z: a.z + b.z};
+	});
+var $w0rm$elm_physics$Internal$Transform3d$mul = F2(
+	function (_v0, _v1) {
+		var q1x = _v0.a;
+		var q1y = _v0.b;
+		var q1z = _v0.c;
+		var q1w = _v0.d;
+		var q2x = _v1.a;
+		var q2y = _v1.b;
+		var q2z = _v1.c;
+		var q2w = _v1.d;
+		return A4($w0rm$elm_physics$Internal$Transform3d$Orientation3d, (((q1x * q2w) + (q1y * q2z)) - (q1z * q2y)) + (q1w * q2x), ((((-q1x) * q2z) + (q1y * q2w)) + (q1z * q2x)) + (q1w * q2y), (((q1x * q2y) - (q1y * q2x)) + (q1z * q2w)) + (q1w * q2z), ((((-q1x) * q2x) - (q1y * q2y)) - (q1z * q2z)) + (q1w * q2w));
+	});
+var $w0rm$elm_physics$Internal$Transform3d$rotate = F2(
+	function (_v0, _v1) {
+		var qx = _v0.a;
+		var qy = _v0.b;
+		var qz = _v0.c;
+		var qw = _v0.d;
+		var x = _v1.x;
+		var y = _v1.y;
+		var z = _v1.z;
+		var iz = ((qw * z) + (qx * y)) - (qy * x);
+		var iy = ((qw * y) + (qz * x)) - (qx * z);
+		var ix = ((qw * x) + (qy * z)) - (qz * y);
+		var iw = (((-qx) * x) - (qy * y)) - (qz * z);
+		return {x: (((ix * qw) + (iw * (-qx))) + (iy * (-qz))) - (iz * (-qy)), y: (((iy * qw) + (iw * (-qy))) + (iz * (-qx))) - (ix * (-qz)), z: (((iz * qw) + (iw * (-qz))) + (ix * (-qy))) - (iy * (-qx))};
+	});
+var $w0rm$elm_physics$Internal$Transform3d$placeIn = F2(
+	function (_v0, _v1) {
+		var globalPosition = _v0.a;
+		var globalOrientation = _v0.b;
+		var localPosition = _v1.a;
+		var localOrientation = _v1.b;
+		return A2(
+			$w0rm$elm_physics$Internal$Transform3d$Transform3d,
+			A2(
+				$w0rm$elm_physics$Internal$Vector3$add,
+				globalPosition,
+				A2($w0rm$elm_physics$Internal$Transform3d$rotate, globalOrientation, localPosition)),
+			A2($w0rm$elm_physics$Internal$Transform3d$mul, globalOrientation, localOrientation));
+	});
+var $ianmackenzie$elm_geometry$Geometry$Types$Frame3d = function (a) {
+	return {$: 'Frame3d', a: a};
+};
+var $ianmackenzie$elm_geometry$Frame3d$unsafe = function (properties) {
+	return $ianmackenzie$elm_geometry$Geometry$Types$Frame3d(properties);
+};
+var $w0rm$elm_physics$Physics$Body$frame = function (_v0) {
+	var transform3d = _v0.a.transform3d;
+	var centerOfMassTransform3d = _v0.a.centerOfMassTransform3d;
+	var bodyCoordinatesTransform3d = A2(
+		$w0rm$elm_physics$Internal$Transform3d$placeIn,
+		transform3d,
+		$w0rm$elm_physics$Internal$Transform3d$inverse(centerOfMassTransform3d));
+	var _v1 = $w0rm$elm_physics$Internal$Transform3d$orientation(bodyCoordinatesTransform3d);
+	var m11 = _v1.m11;
+	var m21 = _v1.m21;
+	var m31 = _v1.m31;
+	var m12 = _v1.m12;
+	var m22 = _v1.m22;
+	var m32 = _v1.m32;
+	var m13 = _v1.m13;
+	var m23 = _v1.m23;
+	var m33 = _v1.m33;
+	return $ianmackenzie$elm_geometry$Frame3d$unsafe(
+		{
+			originPoint: $ianmackenzie$elm_geometry$Point3d$fromMeters(
+				$w0rm$elm_physics$Internal$Transform3d$originPoint(bodyCoordinatesTransform3d)),
+			xDirection: $ianmackenzie$elm_geometry$Direction3d$unsafe(
+				{x: m11, y: m21, z: m31}),
+			yDirection: $ianmackenzie$elm_geometry$Direction3d$unsafe(
+				{x: m12, y: m22, z: m32}),
+			zDirection: $ianmackenzie$elm_geometry$Direction3d$unsafe(
+				{x: m13, y: m23, z: m33})
+		});
+};
 var $author$project$Main$framerate = 16.6;
 var $ianmackenzie$elm_geometry$Geometry$Types$Vector3d = function (a) {
 	return {$: 'Vector3d', a: a};
@@ -12820,6 +13150,99 @@ var $ianmackenzie$elm_geometry$Vector3d$from = F2(
 		return $ianmackenzie$elm_geometry$Geometry$Types$Vector3d(
 			{x: p2.x - p1.x, y: p2.y - p1.y, z: p2.z - p1.z});
 	});
+var $ianmackenzie$elm_units$Quantity$greaterThan = F2(
+	function (_v0, _v1) {
+		var y = _v0.a;
+		var x = _v1.a;
+		return _Utils_cmp(x, y) > 0;
+	});
+var $elm$core$List$any = F2(
+	function (isOkay, list) {
+		any:
+		while (true) {
+			if (!list.b) {
+				return false;
+			} else {
+				var x = list.a;
+				var xs = list.b;
+				if (isOkay(x)) {
+					return true;
+				} else {
+					var $temp$isOkay = isOkay,
+						$temp$list = xs;
+					isOkay = $temp$isOkay;
+					list = $temp$list;
+					continue any;
+				}
+			}
+		}
+	});
+var $elm$core$List$member = F2(
+	function (x, xs) {
+		return A2(
+			$elm$core$List$any,
+			function (a) {
+				return _Utils_eq(a, x);
+			},
+			xs);
+	});
+var $elm$core$List$partition = F2(
+	function (pred, list) {
+		var step = F2(
+			function (x, _v0) {
+				var trues = _v0.a;
+				var falses = _v0.b;
+				return pred(x) ? _Utils_Tuple2(
+					A2($elm$core$List$cons, x, trues),
+					falses) : _Utils_Tuple2(
+					trues,
+					A2($elm$core$List$cons, x, falses));
+			});
+		return A3(
+			$elm$core$List$foldr,
+			step,
+			_Utils_Tuple2(_List_Nil, _List_Nil),
+			list);
+	});
+var $w0rm$elm_physics$Physics$World$keepIf = F2(
+	function (fn, _v0) {
+		var world = _v0.a;
+		var _v1 = A2(
+			$elm$core$List$partition,
+			A2($elm$core$Basics$composeR, $w0rm$elm_physics$Internal$Body$Protected, fn),
+			world.bodies);
+		var keptBodies = _v1.a;
+		var removedBodies = _v1.b;
+		var removedIds = A3(
+			$elm$core$List$foldl,
+			A2(
+				$elm$core$Basics$composeR,
+				function ($) {
+					return $.id;
+				},
+				$elm$core$List$cons),
+			_List_Nil,
+			removedBodies);
+		var keptConstraints = A3(
+			$elm$core$List$foldl,
+			F2(
+				function (c, result) {
+					return (A2($elm$core$List$member, c.bodyId1, removedIds) || A2($elm$core$List$member, c.bodyId2, removedIds)) ? result : A2($elm$core$List$cons, c, result);
+				}),
+			_List_Nil,
+			world.constraints);
+		return $w0rm$elm_physics$Internal$World$Protected(
+			_Utils_update(
+				world,
+				{
+					bodies: keptBodies,
+					constraints: keptConstraints,
+					freeIds: _Utils_ap(removedIds, world.freeIds)
+				}));
+	});
+var $ianmackenzie$elm_units$Mass$kilograms = function (numKilograms) {
+	return $ianmackenzie$elm_units$Quantity$Quantity(numKilograms);
+};
 var $ianmackenzie$elm_units$Length$meters = function (numMeters) {
 	return $ianmackenzie$elm_units$Quantity$Quantity(numMeters);
 };
@@ -12828,20 +13251,6 @@ var $ianmackenzie$elm_geometry$Vector3d$meters = F3(
 		return $ianmackenzie$elm_geometry$Geometry$Types$Vector3d(
 			{x: x, y: y, z: z});
 	});
-var $ianmackenzie$elm_geometry$Point3d$translateBy = F2(
-	function (_v0, _v1) {
-		var v = _v0.a;
-		var p = _v1.a;
-		return $ianmackenzie$elm_geometry$Geometry$Types$Point3d(
-			{x: p.x + v.x, y: p.y + v.y, z: p.z + v.z});
-	});
-var $author$project$Main$moveCannonBall = function (cannonBall) {
-	return _Utils_update(
-		cannonBall,
-		{
-			position: A2($ianmackenzie$elm_geometry$Point3d$translateBy, cannonBall.velocity, cannonBall.position)
-		});
-};
 var $elm$core$Basics$cos = _Basics_cos;
 var $elm$core$Basics$sin = _Basics_sin;
 var $ianmackenzie$elm_geometry$Vector3d$rotateAround = F3(
@@ -12878,6 +13287,13 @@ var $ianmackenzie$elm_geometry$Vector3d$rotateAround = F3(
 		return $ianmackenzie$elm_geometry$Geometry$Types$Vector3d(
 			{x: ((a00 * v.x) + (a01 * v.y)) + (a02 * v.z), y: ((a10 * v.x) + (a11 * v.y)) + (a12 * v.z), z: ((a20 * v.x) + (a21 * v.y)) + (a22 * v.z)});
 	});
+var $ianmackenzie$elm_geometry$Point3d$translateBy = F2(
+	function (_v0, _v1) {
+		var v = _v0.a;
+		var p = _v1.a;
+		return $ianmackenzie$elm_geometry$Geometry$Types$Point3d(
+			{x: p.x + v.x, y: p.y + v.y, z: p.z + v.z});
+	});
 var $ianmackenzie$elm_geometry$Geometry$Types$Axis3d = function (a) {
 	return {$: 'Axis3d', a: a};
 };
@@ -12886,12 +13302,6 @@ var $ianmackenzie$elm_geometry$Axis3d$through = F2(
 		return $ianmackenzie$elm_geometry$Geometry$Types$Axis3d(
 			{direction: givenDirection, originPoint: givenPoint});
 	});
-var $ianmackenzie$elm_geometry$Geometry$Types$Direction3d = function (a) {
-	return {$: 'Direction3d', a: a};
-};
-var $ianmackenzie$elm_geometry$Direction3d$unsafe = function (givenComponents) {
-	return $ianmackenzie$elm_geometry$Geometry$Types$Direction3d(givenComponents);
-};
 var $ianmackenzie$elm_geometry$Direction3d$positiveZ = $ianmackenzie$elm_geometry$Direction3d$unsafe(
 	{x: 0, y: 0, z: 1});
 var $ianmackenzie$elm_geometry$Direction3d$z = $ianmackenzie$elm_geometry$Direction3d$positiveZ;
@@ -12911,6 +13321,257 @@ var $author$project$Main$moveTank = F2(
 					tank.position)
 			});
 	});
+var $w0rm$elm_physics$Internal$Transform3d$moveTo = F2(
+	function (newOrigin, _v0) {
+		var localOrientation = _v0.b;
+		return A2($w0rm$elm_physics$Internal$Transform3d$Transform3d, newOrigin, localOrientation);
+	});
+var $w0rm$elm_physics$Internal$Shape$Convex = function (a) {
+	return {$: 'Convex', a: a};
+};
+var $w0rm$elm_physics$Internal$Shape$Particle = function (a) {
+	return {$: 'Particle', a: a};
+};
+var $w0rm$elm_physics$Internal$Shape$Plane = function (a) {
+	return {$: 'Plane', a: a};
+};
+var $w0rm$elm_physics$Internal$Shape$Sphere = function (a) {
+	return {$: 'Sphere', a: a};
+};
+var $w0rm$elm_physics$Internal$Transform3d$directionPlaceIn = F2(
+	function (_v0, worldVector) {
+		var globalOrientation = _v0.b;
+		return A2($w0rm$elm_physics$Internal$Transform3d$rotate, globalOrientation, worldVector);
+	});
+var $w0rm$elm_physics$Internal$Transform3d$directionsPlaceInHelp = F3(
+	function (transform, directions, result) {
+		directionsPlaceInHelp:
+		while (true) {
+			if (directions.b) {
+				var point = directions.a;
+				var remainingdirections = directions.b;
+				var $temp$transform = transform,
+					$temp$directions = remainingdirections,
+					$temp$result = A2(
+					$elm$core$List$cons,
+					A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, transform, point),
+					result);
+				transform = $temp$transform;
+				directions = $temp$directions;
+				result = $temp$result;
+				continue directionsPlaceInHelp;
+			} else {
+				return result;
+			}
+		}
+	});
+var $w0rm$elm_physics$Internal$Transform3d$directionsPlaceIn = F2(
+	function (transform, directions) {
+		return A3($w0rm$elm_physics$Internal$Transform3d$directionsPlaceInHelp, transform, directions, _List_Nil);
+	});
+var $w0rm$elm_physics$Internal$Transform3d$pointPlaceIn = F2(
+	function (_v0, _v2) {
+		var globalOrigin = _v0.a;
+		var _v1 = _v0.b;
+		var qx = _v1.a;
+		var qy = _v1.b;
+		var qz = _v1.c;
+		var qw = _v1.d;
+		var x = _v2.x;
+		var y = _v2.y;
+		var z = _v2.z;
+		var iz = ((qw * z) + (qx * y)) - (qy * x);
+		var iy = ((qw * y) + (qz * x)) - (qx * z);
+		var ix = ((qw * x) + (qy * z)) - (qz * y);
+		var iw = (((-qx) * x) - (qy * y)) - (qz * z);
+		return {x: ((((ix * qw) + (iw * (-qx))) + (iy * (-qz))) - (iz * (-qy))) + globalOrigin.x, y: ((((iy * qw) + (iw * (-qy))) + (iz * (-qx))) - (ix * (-qz))) + globalOrigin.y, z: ((((iz * qw) + (iw * (-qz))) + (ix * (-qy))) - (iy * (-qx))) + globalOrigin.z};
+	});
+var $w0rm$elm_physics$Internal$Transform3d$pointsPlaceInHelp = F3(
+	function (transform, points, result) {
+		pointsPlaceInHelp:
+		while (true) {
+			if (points.b) {
+				var point = points.a;
+				var remainingPoints = points.b;
+				var $temp$transform = transform,
+					$temp$points = remainingPoints,
+					$temp$result = A2(
+					$elm$core$List$cons,
+					A2($w0rm$elm_physics$Internal$Transform3d$pointPlaceIn, transform, point),
+					result);
+				transform = $temp$transform;
+				points = $temp$points;
+				result = $temp$result;
+				continue pointsPlaceInHelp;
+			} else {
+				return result;
+			}
+		}
+	});
+var $w0rm$elm_physics$Internal$Transform3d$pointsPlaceIn = F2(
+	function (transform, points) {
+		return A3($w0rm$elm_physics$Internal$Transform3d$pointsPlaceInHelp, transform, points, _List_Nil);
+	});
+var $w0rm$elm_physics$Shapes$Convex$facesPlaceInHelp = F3(
+	function (transform3d, faces, result) {
+		facesPlaceInHelp:
+		while (true) {
+			if (faces.b) {
+				var vertices = faces.a.vertices;
+				var normal = faces.a.normal;
+				var remainingFaces = faces.b;
+				var $temp$transform3d = transform3d,
+					$temp$faces = remainingFaces,
+					$temp$result = A2(
+					$elm$core$List$cons,
+					{
+						normal: A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, transform3d, normal),
+						vertices: $elm$core$List$reverse(
+							A2($w0rm$elm_physics$Internal$Transform3d$pointsPlaceIn, transform3d, vertices))
+					},
+					result);
+				transform3d = $temp$transform3d;
+				faces = $temp$faces;
+				result = $temp$result;
+				continue facesPlaceInHelp;
+			} else {
+				return result;
+			}
+		}
+	});
+var $w0rm$elm_physics$Internal$Matrix3$mul = F2(
+	function (a, b) {
+		return {m11: ((a.m11 * b.m11) + (a.m12 * b.m21)) + (a.m13 * b.m31), m12: ((a.m11 * b.m12) + (a.m12 * b.m22)) + (a.m13 * b.m32), m13: ((a.m11 * b.m13) + (a.m12 * b.m23)) + (a.m13 * b.m33), m21: ((a.m21 * b.m11) + (a.m22 * b.m21)) + (a.m23 * b.m31), m22: ((a.m21 * b.m12) + (a.m22 * b.m22)) + (a.m23 * b.m32), m23: ((a.m21 * b.m13) + (a.m22 * b.m23)) + (a.m23 * b.m33), m31: ((a.m31 * b.m11) + (a.m32 * b.m21)) + (a.m33 * b.m31), m32: ((a.m31 * b.m12) + (a.m32 * b.m22)) + (a.m33 * b.m32), m33: ((a.m31 * b.m13) + (a.m32 * b.m23)) + (a.m33 * b.m33)};
+	});
+var $w0rm$elm_physics$Internal$Matrix3$transpose = function (m) {
+	return {m11: m.m11, m12: m.m21, m13: m.m31, m21: m.m12, m22: m.m22, m23: m.m32, m31: m.m13, m32: m.m23, m33: m.m33};
+};
+var $w0rm$elm_physics$Internal$Transform3d$inertiaRotateIn = F2(
+	function (transform3d, inertia) {
+		var rotation = $w0rm$elm_physics$Internal$Transform3d$orientation(transform3d);
+		return A2(
+			$w0rm$elm_physics$Internal$Matrix3$mul,
+			rotation,
+			A2(
+				$w0rm$elm_physics$Internal$Matrix3$mul,
+				inertia,
+				$w0rm$elm_physics$Internal$Matrix3$transpose(rotation)));
+	});
+var $w0rm$elm_physics$Shapes$Convex$placeIn = F2(
+	function (transform3d, _v0) {
+		var faces = _v0.faces;
+		var vertices = _v0.vertices;
+		var uniqueEdges = _v0.uniqueEdges;
+		var uniqueNormals = _v0.uniqueNormals;
+		var position = _v0.position;
+		var volume = _v0.volume;
+		var inertia = _v0.inertia;
+		return {
+			faces: A3($w0rm$elm_physics$Shapes$Convex$facesPlaceInHelp, transform3d, faces, _List_Nil),
+			inertia: A2($w0rm$elm_physics$Internal$Transform3d$inertiaRotateIn, transform3d, inertia),
+			position: A2($w0rm$elm_physics$Internal$Transform3d$pointPlaceIn, transform3d, position),
+			uniqueEdges: A2($w0rm$elm_physics$Internal$Transform3d$directionsPlaceIn, transform3d, uniqueEdges),
+			uniqueNormals: A2($w0rm$elm_physics$Internal$Transform3d$directionsPlaceIn, transform3d, uniqueNormals),
+			vertices: A2($w0rm$elm_physics$Internal$Transform3d$pointsPlaceIn, transform3d, vertices),
+			volume: volume
+		};
+	});
+var $w0rm$elm_physics$Shapes$Plane$placeIn = F2(
+	function (transform3d, _v0) {
+		var normal = _v0.normal;
+		var position = _v0.position;
+		return {
+			normal: A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, transform3d, normal),
+			position: A2($w0rm$elm_physics$Internal$Transform3d$pointPlaceIn, transform3d, position)
+		};
+	});
+var $w0rm$elm_physics$Shapes$Sphere$placeIn = F2(
+	function (transform3d, _v0) {
+		var radius = _v0.radius;
+		var position = _v0.position;
+		var volume = _v0.volume;
+		var inertia = _v0.inertia;
+		return {
+			inertia: inertia,
+			position: A2($w0rm$elm_physics$Internal$Transform3d$pointPlaceIn, transform3d, position),
+			radius: radius,
+			volume: volume
+		};
+	});
+var $w0rm$elm_physics$Internal$Shape$shapesPlaceInHelp = F3(
+	function (transform3d, shapes, result) {
+		shapesPlaceInHelp:
+		while (true) {
+			if (shapes.b) {
+				var shape = shapes.a;
+				var remainingShapes = shapes.b;
+				var $temp$transform3d = transform3d,
+					$temp$shapes = remainingShapes,
+					$temp$result = A2(
+					$elm$core$List$cons,
+					function () {
+						switch (shape.$) {
+							case 'Convex':
+								var convex = shape.a;
+								return $w0rm$elm_physics$Internal$Shape$Convex(
+									A2($w0rm$elm_physics$Shapes$Convex$placeIn, transform3d, convex));
+							case 'Plane':
+								var plane = shape.a;
+								return $w0rm$elm_physics$Internal$Shape$Plane(
+									A2($w0rm$elm_physics$Shapes$Plane$placeIn, transform3d, plane));
+							case 'Sphere':
+								var sphere = shape.a;
+								return $w0rm$elm_physics$Internal$Shape$Sphere(
+									A2($w0rm$elm_physics$Shapes$Sphere$placeIn, transform3d, sphere));
+							default:
+								var position = shape.a;
+								return $w0rm$elm_physics$Internal$Shape$Particle(
+									A2($w0rm$elm_physics$Internal$Transform3d$pointPlaceIn, transform3d, position));
+						}
+					}(),
+					result);
+				transform3d = $temp$transform3d;
+				shapes = $temp$shapes;
+				result = $temp$result;
+				continue shapesPlaceInHelp;
+			} else {
+				return result;
+			}
+		}
+	});
+var $w0rm$elm_physics$Internal$Shape$shapesPlaceIn = F2(
+	function (transform3d, shapes) {
+		return A3($w0rm$elm_physics$Internal$Shape$shapesPlaceInHelp, transform3d, shapes, _List_Nil);
+	});
+var $w0rm$elm_physics$Physics$Body$moveTo = F2(
+	function (point3d, _v0) {
+		var body = _v0.a;
+		var bodyCoordinatesTransform3d = A2(
+			$w0rm$elm_physics$Internal$Transform3d$placeIn,
+			body.transform3d,
+			$w0rm$elm_physics$Internal$Transform3d$inverse(body.centerOfMassTransform3d));
+		var newTransform3d = A2(
+			$w0rm$elm_physics$Internal$Transform3d$placeIn,
+			A2(
+				$w0rm$elm_physics$Internal$Transform3d$moveTo,
+				$ianmackenzie$elm_geometry$Point3d$toMeters(point3d),
+				bodyCoordinatesTransform3d),
+			body.centerOfMassTransform3d);
+		return $w0rm$elm_physics$Internal$Body$Protected(
+			_Utils_update(
+				body,
+				{
+					transform3d: newTransform3d,
+					worldShapes: A2($w0rm$elm_physics$Internal$Shape$shapesPlaceIn, newTransform3d, body.shapes)
+				}));
+	});
+var $ianmackenzie$elm_units$Force$newtons = function (numNewtons) {
+	return $ianmackenzie$elm_units$Quantity$Quantity(numNewtons);
+};
+var $ianmackenzie$elm_geometry$Frame3d$originPoint = function (_v0) {
+	var properties = _v0.a;
+	return properties.originPoint;
+};
 var $ianmackenzie$elm_geometry$Direction3d$positiveX = $ianmackenzie$elm_geometry$Direction3d$unsafe(
 	{x: 1, y: 0, z: 0});
 var $ianmackenzie$elm_geometry$Point3d$rotateAround = F3(
@@ -12974,6 +13635,2320 @@ var $author$project$Main$rotateTank = F2(
 					$ianmackenzie$elm_units$Angle$degrees(magnitude * 1.0))
 			});
 	});
+var $ianmackenzie$elm_units$Duration$seconds = function (numSeconds) {
+	return $ianmackenzie$elm_units$Quantity$Quantity(numSeconds);
+};
+var $w0rm$elm_physics$Internal$Vector3$lengthSquared = function (_v0) {
+	var x = _v0.x;
+	var y = _v0.y;
+	var z = _v0.z;
+	return ((x * x) + (y * y)) + (z * z);
+};
+var $w0rm$elm_physics$Internal$Vector3$distanceSquared = F2(
+	function (a, b) {
+		return $w0rm$elm_physics$Internal$Vector3$lengthSquared(
+			A2($w0rm$elm_physics$Internal$Vector3$sub, a, b));
+	});
+var $w0rm$elm_physics$Internal$BroadPhase$bodiesMayContact = F2(
+	function (body1, body2) {
+		var distanceSquared = A2(
+			$w0rm$elm_physics$Internal$Vector3$distanceSquared,
+			$w0rm$elm_physics$Internal$Transform3d$originPoint(body1.transform3d),
+			$w0rm$elm_physics$Internal$Transform3d$originPoint(body2.transform3d));
+		var boundingRadiuses = body1.boundingSphereRadius + body2.boundingSphereRadius;
+		return (((boundingRadiuses * boundingRadiuses) - distanceSquared) > 0) && (!(!(body1.mass + body2.mass)));
+	});
+var $w0rm$elm_physics$Internal$Vector3$dot = F2(
+	function (a, b) {
+		return ((a.x * b.x) + (a.y * b.y)) + (a.z * b.z);
+	});
+var $w0rm$elm_physics$Collision$ConvexConvex$bestFaceHelp = F4(
+	function (separatingAxis, faces, currentBestFace, currentBestDistance) {
+		bestFaceHelp:
+		while (true) {
+			if (faces.b) {
+				var face = faces.a;
+				var remainingFaces = faces.b;
+				var faceDistance = A2($w0rm$elm_physics$Internal$Vector3$dot, face.normal, separatingAxis);
+				if ((currentBestDistance - faceDistance) > 0) {
+					var $temp$separatingAxis = separatingAxis,
+						$temp$faces = remainingFaces,
+						$temp$currentBestFace = face,
+						$temp$currentBestDistance = faceDistance;
+					separatingAxis = $temp$separatingAxis;
+					faces = $temp$faces;
+					currentBestFace = $temp$currentBestFace;
+					currentBestDistance = $temp$currentBestDistance;
+					continue bestFaceHelp;
+				} else {
+					var $temp$separatingAxis = separatingAxis,
+						$temp$faces = remainingFaces,
+						$temp$currentBestFace = currentBestFace,
+						$temp$currentBestDistance = currentBestDistance;
+					separatingAxis = $temp$separatingAxis;
+					faces = $temp$faces;
+					currentBestFace = $temp$currentBestFace;
+					currentBestDistance = $temp$currentBestDistance;
+					continue bestFaceHelp;
+				}
+			} else {
+				return currentBestFace;
+			}
+		}
+	});
+var $w0rm$elm_physics$Collision$ConvexConvex$bestFace = F2(
+	function (faces, separatingAxis) {
+		if (faces.b) {
+			var face = faces.a;
+			var restFaces = faces.b;
+			return $elm$core$Maybe$Just(
+				A4(
+					$w0rm$elm_physics$Collision$ConvexConvex$bestFaceHelp,
+					separatingAxis,
+					restFaces,
+					face,
+					A2($w0rm$elm_physics$Internal$Vector3$dot, face.normal, separatingAxis)));
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $w0rm$elm_physics$Internal$Vector3$lerp = F3(
+	function (t, v1, v2) {
+		return {x: v1.x + (t * (v2.x - v1.x)), y: v1.y + (t * (v2.y - v1.y)), z: v1.z + (t * (v2.z - v1.z))};
+	});
+var $w0rm$elm_physics$Collision$ConvexConvex$clipFaceAgainstPlaneAdd = F5(
+	function (planeNormal, planeConstant, prev, next, result) {
+		var nDotPrev = A2($w0rm$elm_physics$Internal$Vector3$dot, planeNormal, prev) + planeConstant;
+		var nDotNext = A2($w0rm$elm_physics$Internal$Vector3$dot, planeNormal, next) + planeConstant;
+		return (nDotPrev < 0) ? ((nDotNext < 0) ? A2($elm$core$List$cons, next, result) : A2(
+			$elm$core$List$cons,
+			A3($w0rm$elm_physics$Internal$Vector3$lerp, nDotPrev / (nDotPrev - nDotNext), prev, next),
+			result)) : ((nDotNext < 0) ? A2(
+			$elm$core$List$cons,
+			next,
+			A2(
+				$elm$core$List$cons,
+				A3($w0rm$elm_physics$Internal$Vector3$lerp, nDotPrev / (nDotPrev - nDotNext), prev, next),
+				result)) : result);
+	});
+var $w0rm$elm_physics$Shapes$Convex$foldFaceEdgesHelp = F4(
+	function (fn, seed, resultSeed, vertices) {
+		foldFaceEdgesHelp:
+		while (true) {
+			if (vertices.b) {
+				var el1 = vertices.a;
+				var rest1 = vertices.b;
+				if (!rest1.b) {
+					return A3(fn, el1, seed, resultSeed);
+				} else {
+					var el2 = rest1.a;
+					var $temp$fn = fn,
+						$temp$seed = seed,
+						$temp$resultSeed = A3(fn, el1, el2, resultSeed),
+						$temp$vertices = rest1;
+					fn = $temp$fn;
+					seed = $temp$seed;
+					resultSeed = $temp$resultSeed;
+					vertices = $temp$vertices;
+					continue foldFaceEdgesHelp;
+				}
+			} else {
+				return resultSeed;
+			}
+		}
+	});
+var $w0rm$elm_physics$Shapes$Convex$foldFaceEdges = F3(
+	function (fn, resultSeed, vertices) {
+		if (vertices.b && vertices.b.b) {
+			var first = vertices.a;
+			var _v1 = vertices.b;
+			return A4($w0rm$elm_physics$Shapes$Convex$foldFaceEdgesHelp, fn, first, resultSeed, vertices);
+		} else {
+			return resultSeed;
+		}
+	});
+var $w0rm$elm_physics$Internal$Vector3$length = function (_v0) {
+	var x = _v0.x;
+	var y = _v0.y;
+	var z = _v0.z;
+	return $elm$core$Basics$sqrt(((x * x) + (y * y)) + (z * z));
+};
+var $w0rm$elm_physics$Internal$Vector3$normalize = function (v3) {
+	var len = $w0rm$elm_physics$Internal$Vector3$length(v3);
+	return {x: v3.x / len, y: v3.y / len, z: v3.z / len};
+};
+var $w0rm$elm_physics$Collision$ConvexConvex$clipAgainstAdjacentFaces = F2(
+	function (_v0, faceVertices) {
+		var vertices = _v0.vertices;
+		var normal = _v0.normal;
+		return A3(
+			$w0rm$elm_physics$Shapes$Convex$foldFaceEdges,
+			F2(
+				function (v1, v2) {
+					var edge = $w0rm$elm_physics$Internal$Vector3$normalize(
+						A2($w0rm$elm_physics$Internal$Vector3$sub, v1, v2));
+					var planeNormal = A2($w0rm$elm_physics$Internal$Vector3$cross, normal, edge);
+					var planeConstant = -A2($w0rm$elm_physics$Internal$Vector3$dot, v1, planeNormal);
+					return A2(
+						$w0rm$elm_physics$Shapes$Convex$foldFaceEdges,
+						A2($w0rm$elm_physics$Collision$ConvexConvex$clipFaceAgainstPlaneAdd, planeNormal, planeConstant),
+						_List_Nil);
+				}),
+			faceVertices,
+			vertices);
+	});
+var $w0rm$elm_physics$Collision$ConvexConvex$clipTwoFacesHelp = F5(
+	function (separatingAxis, face, facePlaneConstant, vertices, result) {
+		clipTwoFacesHelp:
+		while (true) {
+			if (vertices.b) {
+				var vertex = vertices.a;
+				var remainingVertices = vertices.b;
+				var depth = A2($w0rm$elm_physics$Internal$Vector3$dot, face.normal, vertex) + facePlaneConstant;
+				if (depth <= 0) {
+					var $temp$separatingAxis = separatingAxis,
+						$temp$face = face,
+						$temp$facePlaneConstant = facePlaneConstant,
+						$temp$vertices = remainingVertices,
+						$temp$result = A2(
+						$elm$core$List$cons,
+						{
+							ni: separatingAxis,
+							pi: {x: vertex.x - (depth * face.normal.x), y: vertex.y - (depth * face.normal.y), z: vertex.z - (depth * face.normal.z)},
+							pj: vertex
+						},
+						result);
+					separatingAxis = $temp$separatingAxis;
+					face = $temp$face;
+					facePlaneConstant = $temp$facePlaneConstant;
+					vertices = $temp$vertices;
+					result = $temp$result;
+					continue clipTwoFacesHelp;
+				} else {
+					var $temp$separatingAxis = separatingAxis,
+						$temp$face = face,
+						$temp$facePlaneConstant = facePlaneConstant,
+						$temp$vertices = remainingVertices,
+						$temp$result = result;
+					separatingAxis = $temp$separatingAxis;
+					face = $temp$face;
+					facePlaneConstant = $temp$facePlaneConstant;
+					vertices = $temp$vertices;
+					result = $temp$result;
+					continue clipTwoFacesHelp;
+				}
+			} else {
+				return result;
+			}
+		}
+	});
+var $w0rm$elm_physics$Collision$ConvexConvex$clipTwoFaces = F4(
+	function (face, _v0, separatingAxis, contacts) {
+		var vertices = _v0.vertices;
+		var point = function () {
+			var _v1 = face.vertices;
+			if (_v1.b) {
+				var first = _v1.a;
+				return first;
+			} else {
+				return $w0rm$elm_physics$Internal$Vector3$zero;
+			}
+		}();
+		var facePlaneConstant = -A2($w0rm$elm_physics$Internal$Vector3$dot, face.normal, point);
+		return A5(
+			$w0rm$elm_physics$Collision$ConvexConvex$clipTwoFacesHelp,
+			separatingAxis,
+			face,
+			facePlaneConstant,
+			A2($w0rm$elm_physics$Collision$ConvexConvex$clipAgainstAdjacentFaces, face, vertices),
+			contacts);
+	});
+var $w0rm$elm_physics$Internal$Const$maxNumber = 3.40282347e38;
+var $w0rm$elm_physics$Collision$ConvexConvex$project = F4(
+	function (localAxis, minVal, maxVal, currentVertices) {
+		project:
+		while (true) {
+			if (!currentVertices.b) {
+				return {max: maxVal, min: minVal};
+			} else {
+				var vec = currentVertices.a;
+				var remainingVertices = currentVertices.b;
+				var val = ((vec.x * localAxis.x) + (vec.y * localAxis.y)) + (vec.z * localAxis.z);
+				var $temp$localAxis = localAxis,
+					$temp$minVal = ((minVal - val) > 0) ? val : minVal,
+					$temp$maxVal = ((maxVal - val) > 0) ? maxVal : val,
+					$temp$currentVertices = remainingVertices;
+				localAxis = $temp$localAxis;
+				minVal = $temp$minVal;
+				maxVal = $temp$maxVal;
+				currentVertices = $temp$currentVertices;
+				continue project;
+			}
+		}
+	});
+var $w0rm$elm_physics$Collision$ConvexConvex$testSeparatingAxis = F3(
+	function (convex1, convex2, separatingAxis) {
+		var p2 = A4($w0rm$elm_physics$Collision$ConvexConvex$project, separatingAxis, $w0rm$elm_physics$Internal$Const$maxNumber, -$w0rm$elm_physics$Internal$Const$maxNumber, convex2.vertices);
+		var p1 = A4($w0rm$elm_physics$Collision$ConvexConvex$project, separatingAxis, $w0rm$elm_physics$Internal$Const$maxNumber, -$w0rm$elm_physics$Internal$Const$maxNumber, convex1.vertices);
+		var d2 = p2.max - p1.min;
+		var d1 = p1.max - p2.min;
+		return ((d1 < 0) || (d2 < 0)) ? $elm$core$Maybe$Nothing : (((d1 - d2) > 0) ? $elm$core$Maybe$Just(d2) : $elm$core$Maybe$Just(d1));
+	});
+var $w0rm$elm_physics$Internal$Const$precision = 1.0e-6;
+var $w0rm$elm_physics$Internal$Vector3$almostZero = function (_v0) {
+	var x = _v0.x;
+	var y = _v0.y;
+	var z = _v0.z;
+	return (($elm$core$Basics$abs(x) - $w0rm$elm_physics$Internal$Const$precision) <= 0) && ((($elm$core$Basics$abs(y) - $w0rm$elm_physics$Internal$Const$precision) <= 0) && (($elm$core$Basics$abs(z) - $w0rm$elm_physics$Internal$Const$precision) <= 0));
+};
+var $w0rm$elm_physics$Internal$Vector3$negate = function (v3) {
+	return {x: -v3.x, y: -v3.y, z: -v3.z};
+};
+var $w0rm$elm_physics$Collision$ConvexConvex$testUniqueEdges = F7(
+	function (convex1, convex2, initEdges2, edges1, edges2, target, dmin) {
+		testUniqueEdges:
+		while (true) {
+			if (!edges1.b) {
+				return (A2(
+					$w0rm$elm_physics$Internal$Vector3$dot,
+					A2($w0rm$elm_physics$Internal$Vector3$sub, convex2.position, convex1.position),
+					target) > 0) ? $elm$core$Maybe$Just(
+					$w0rm$elm_physics$Internal$Vector3$negate(target)) : $elm$core$Maybe$Just(target);
+			} else {
+				var edge1 = edges1.a;
+				var remainingEdges1 = edges1.b;
+				if (!edges2.b) {
+					var $temp$convex1 = convex1,
+						$temp$convex2 = convex2,
+						$temp$initEdges2 = initEdges2,
+						$temp$edges1 = remainingEdges1,
+						$temp$edges2 = initEdges2,
+						$temp$target = target,
+						$temp$dmin = dmin;
+					convex1 = $temp$convex1;
+					convex2 = $temp$convex2;
+					initEdges2 = $temp$initEdges2;
+					edges1 = $temp$edges1;
+					edges2 = $temp$edges2;
+					target = $temp$target;
+					dmin = $temp$dmin;
+					continue testUniqueEdges;
+				} else {
+					var edge2 = edges2.a;
+					var remainingEdges2 = edges2.b;
+					var cross = A2($w0rm$elm_physics$Internal$Vector3$cross, edge1, edge2);
+					if ($w0rm$elm_physics$Internal$Vector3$almostZero(cross)) {
+						var $temp$convex1 = convex1,
+							$temp$convex2 = convex2,
+							$temp$initEdges2 = initEdges2,
+							$temp$edges1 = edges1,
+							$temp$edges2 = remainingEdges2,
+							$temp$target = target,
+							$temp$dmin = dmin;
+						convex1 = $temp$convex1;
+						convex2 = $temp$convex2;
+						initEdges2 = $temp$initEdges2;
+						edges1 = $temp$edges1;
+						edges2 = $temp$edges2;
+						target = $temp$target;
+						dmin = $temp$dmin;
+						continue testUniqueEdges;
+					} else {
+						var normalizedCross = $w0rm$elm_physics$Internal$Vector3$normalize(cross);
+						var _v2 = A3($w0rm$elm_physics$Collision$ConvexConvex$testSeparatingAxis, convex1, convex2, normalizedCross);
+						if (_v2.$ === 'Nothing') {
+							return $elm$core$Maybe$Nothing;
+						} else {
+							var dist = _v2.a;
+							if ((dist - dmin) < 0) {
+								var $temp$convex1 = convex1,
+									$temp$convex2 = convex2,
+									$temp$initEdges2 = initEdges2,
+									$temp$edges1 = edges1,
+									$temp$edges2 = remainingEdges2,
+									$temp$target = normalizedCross,
+									$temp$dmin = dist;
+								convex1 = $temp$convex1;
+								convex2 = $temp$convex2;
+								initEdges2 = $temp$initEdges2;
+								edges1 = $temp$edges1;
+								edges2 = $temp$edges2;
+								target = $temp$target;
+								dmin = $temp$dmin;
+								continue testUniqueEdges;
+							} else {
+								var $temp$convex1 = convex1,
+									$temp$convex2 = convex2,
+									$temp$initEdges2 = initEdges2,
+									$temp$edges1 = edges1,
+									$temp$edges2 = remainingEdges2,
+									$temp$target = target,
+									$temp$dmin = dmin;
+								convex1 = $temp$convex1;
+								convex2 = $temp$convex2;
+								initEdges2 = $temp$initEdges2;
+								edges1 = $temp$edges1;
+								edges2 = $temp$edges2;
+								target = $temp$target;
+								dmin = $temp$dmin;
+								continue testUniqueEdges;
+							}
+						}
+					}
+				}
+			}
+		}
+	});
+var $w0rm$elm_physics$Collision$ConvexConvex$testUniqueNormals = F5(
+	function (convex1, convex2, normals, target, dmin) {
+		testUniqueNormals:
+		while (true) {
+			if (!normals.b) {
+				return A7($w0rm$elm_physics$Collision$ConvexConvex$testUniqueEdges, convex1, convex2, convex2.uniqueEdges, convex1.uniqueEdges, convex2.uniqueEdges, target, dmin);
+			} else {
+				var normal = normals.a;
+				var restNormals = normals.b;
+				var _v1 = A3($w0rm$elm_physics$Collision$ConvexConvex$testSeparatingAxis, convex1, convex2, normal);
+				if (_v1.$ === 'Nothing') {
+					return $elm$core$Maybe$Nothing;
+				} else {
+					var dist = _v1.a;
+					if ((dist - dmin) < 0) {
+						var $temp$convex1 = convex1,
+							$temp$convex2 = convex2,
+							$temp$normals = restNormals,
+							$temp$target = normal,
+							$temp$dmin = dist;
+						convex1 = $temp$convex1;
+						convex2 = $temp$convex2;
+						normals = $temp$normals;
+						target = $temp$target;
+						dmin = $temp$dmin;
+						continue testUniqueNormals;
+					} else {
+						var $temp$convex1 = convex1,
+							$temp$convex2 = convex2,
+							$temp$normals = restNormals,
+							$temp$target = target,
+							$temp$dmin = dmin;
+						convex1 = $temp$convex1;
+						convex2 = $temp$convex2;
+						normals = $temp$normals;
+						target = $temp$target;
+						dmin = $temp$dmin;
+						continue testUniqueNormals;
+					}
+				}
+			}
+		}
+	});
+var $w0rm$elm_physics$Collision$ConvexConvex$findSeparatingAxis = F2(
+	function (convex1, convex2) {
+		return A5(
+			$w0rm$elm_physics$Collision$ConvexConvex$testUniqueNormals,
+			convex1,
+			convex2,
+			_Utils_ap(convex1.uniqueNormals, convex2.uniqueNormals),
+			$w0rm$elm_physics$Internal$Vector3$zero,
+			$w0rm$elm_physics$Internal$Const$maxNumber);
+	});
+var $w0rm$elm_physics$Collision$ConvexConvex$addContacts = F3(
+	function (convex1, convex2, contacts) {
+		var _v0 = A2($w0rm$elm_physics$Collision$ConvexConvex$findSeparatingAxis, convex1, convex2);
+		if (_v0.$ === 'Just') {
+			var separatingAxis = _v0.a;
+			var reversedSeparatingAxis = $w0rm$elm_physics$Internal$Vector3$negate(separatingAxis);
+			var _v1 = A2($w0rm$elm_physics$Collision$ConvexConvex$bestFace, convex1.faces, separatingAxis);
+			if (_v1.$ === 'Just') {
+				var face1 = _v1.a;
+				var _v2 = A2($w0rm$elm_physics$Collision$ConvexConvex$bestFace, convex2.faces, reversedSeparatingAxis);
+				if (_v2.$ === 'Just') {
+					var face2 = _v2.a;
+					return A4($w0rm$elm_physics$Collision$ConvexConvex$clipTwoFaces, face1, face2, reversedSeparatingAxis, contacts);
+				} else {
+					return contacts;
+				}
+			} else {
+				return contacts;
+			}
+		} else {
+			return contacts;
+		}
+	});
+var $w0rm$elm_physics$Collision$ParticleConvex$convexContact = F4(
+	function (particlePosition, faces, bestDepth, bestContact) {
+		convexContact:
+		while (true) {
+			if (!faces.b) {
+				return bestContact;
+			} else {
+				var vertices = faces.a.vertices;
+				var normal = faces.a.normal;
+				var remainingFaces = faces.b;
+				var point = function () {
+					if (vertices.b) {
+						var first = vertices.a;
+						return first;
+					} else {
+						return $w0rm$elm_physics$Internal$Vector3$zero;
+					}
+				}();
+				var dot = A2(
+					$w0rm$elm_physics$Internal$Vector3$dot,
+					normal,
+					A2($w0rm$elm_physics$Internal$Vector3$sub, point, particlePosition));
+				if (dot >= 0) {
+					if (_Utils_cmp(dot, bestDepth) < 0) {
+						var $temp$particlePosition = particlePosition,
+							$temp$faces = remainingFaces,
+							$temp$bestDepth = dot,
+							$temp$bestContact = $elm$core$Maybe$Just(
+							{
+								ni: $w0rm$elm_physics$Internal$Vector3$negate(normal),
+								pi: particlePosition,
+								pj: A2(
+									$w0rm$elm_physics$Internal$Vector3$add,
+									particlePosition,
+									A2($w0rm$elm_physics$Internal$Vector3$scale, dot, normal))
+							});
+						particlePosition = $temp$particlePosition;
+						faces = $temp$faces;
+						bestDepth = $temp$bestDepth;
+						bestContact = $temp$bestContact;
+						continue convexContact;
+					} else {
+						var $temp$particlePosition = particlePosition,
+							$temp$faces = remainingFaces,
+							$temp$bestDepth = bestDepth,
+							$temp$bestContact = bestContact;
+						particlePosition = $temp$particlePosition;
+						faces = $temp$faces;
+						bestDepth = $temp$bestDepth;
+						bestContact = $temp$bestContact;
+						continue convexContact;
+					}
+				} else {
+					return $elm$core$Maybe$Nothing;
+				}
+			}
+		}
+	});
+var $w0rm$elm_physics$Collision$ParticleConvex$addContacts = F4(
+	function (orderContact, particlePosition, _v0, contacts) {
+		var faces = _v0.faces;
+		var _v1 = A4($w0rm$elm_physics$Collision$ParticleConvex$convexContact, particlePosition, faces, $w0rm$elm_physics$Internal$Const$maxNumber, $elm$core$Maybe$Nothing);
+		if (_v1.$ === 'Just') {
+			var contact = _v1.a;
+			return A2(
+				$elm$core$List$cons,
+				orderContact(contact),
+				contacts);
+		} else {
+			return contacts;
+		}
+	});
+var $w0rm$elm_physics$Collision$PlaneConvex$addContactsHelp = F5(
+	function (orderContact, planePosition, planeNormal, vertices, contacts) {
+		addContactsHelp:
+		while (true) {
+			if (vertices.b) {
+				var vertex = vertices.a;
+				var remainingVertices = vertices.b;
+				var dot = (((vertex.x - planePosition.x) * planeNormal.x) + ((vertex.y - planePosition.y) * planeNormal.y)) + ((vertex.z - planePosition.z) * planeNormal.z);
+				if (dot <= 0) {
+					var $temp$orderContact = orderContact,
+						$temp$planePosition = planePosition,
+						$temp$planeNormal = planeNormal,
+						$temp$vertices = remainingVertices,
+						$temp$contacts = A2(
+						$elm$core$List$cons,
+						orderContact(
+							{
+								ni: planeNormal,
+								pi: {x: vertex.x - (dot * planeNormal.x), y: vertex.y - (dot * planeNormal.y), z: vertex.z - (dot * planeNormal.z)},
+								pj: vertex
+							}),
+						contacts);
+					orderContact = $temp$orderContact;
+					planePosition = $temp$planePosition;
+					planeNormal = $temp$planeNormal;
+					vertices = $temp$vertices;
+					contacts = $temp$contacts;
+					continue addContactsHelp;
+				} else {
+					var $temp$orderContact = orderContact,
+						$temp$planePosition = planePosition,
+						$temp$planeNormal = planeNormal,
+						$temp$vertices = remainingVertices,
+						$temp$contacts = contacts;
+					orderContact = $temp$orderContact;
+					planePosition = $temp$planePosition;
+					planeNormal = $temp$planeNormal;
+					vertices = $temp$vertices;
+					contacts = $temp$contacts;
+					continue addContactsHelp;
+				}
+			} else {
+				return contacts;
+			}
+		}
+	});
+var $w0rm$elm_physics$Collision$PlaneConvex$addContacts = F4(
+	function (orderContact, plane, _v0, contacts) {
+		var vertices = _v0.vertices;
+		return A5($w0rm$elm_physics$Collision$PlaneConvex$addContactsHelp, orderContact, plane.position, plane.normal, vertices, contacts);
+	});
+var $w0rm$elm_physics$Collision$PlaneParticle$addContacts = F4(
+	function (orderContact, _v0, particlePosition, contacts) {
+		var position = _v0.position;
+		var normal = _v0.normal;
+		var dot = (((particlePosition.x - position.x) * normal.x) + ((particlePosition.y - position.y) * normal.y)) + ((particlePosition.z - position.z) * normal.z);
+		return (dot <= 0) ? A2(
+			$elm$core$List$cons,
+			orderContact(
+				{
+					ni: normal,
+					pi: {x: particlePosition.x - (dot * normal.x), y: particlePosition.y - (dot * normal.y), z: particlePosition.z - (dot * normal.z)},
+					pj: particlePosition
+				}),
+			contacts) : contacts;
+	});
+var $w0rm$elm_physics$Collision$PlaneSphere$addContacts = F4(
+	function (orderContact, _v0, sphere, contacts) {
+		var normal = _v0.normal;
+		var position = _v0.position;
+		var _v1 = sphere.position;
+		var x = _v1.x;
+		var y = _v1.y;
+		var z = _v1.z;
+		var vertex = {x: x - (sphere.radius * normal.x), y: y - (sphere.radius * normal.y), z: z - (sphere.radius * normal.z)};
+		var dot = (((vertex.x - position.x) * normal.x) + ((vertex.y - position.y) * normal.y)) + ((vertex.z - position.z) * normal.z);
+		return (dot <= 0) ? A2(
+			$elm$core$List$cons,
+			orderContact(
+				{
+					ni: normal,
+					pi: {x: vertex.x - (dot * normal.x), y: vertex.y - (dot * normal.y), z: vertex.z - (dot * normal.z)},
+					pj: vertex
+				}),
+			contacts) : contacts;
+	});
+var $w0rm$elm_physics$Internal$Vector3$direction = F2(
+	function (a, b) {
+		var c = A2($w0rm$elm_physics$Internal$Vector3$sub, a, b);
+		var len = $w0rm$elm_physics$Internal$Vector3$length(c);
+		return {x: c.x / len, y: c.y / len, z: c.z / len};
+	});
+var $w0rm$elm_physics$Collision$SphereConvex$QualifiedEdges = function (a) {
+	return {$: 'QualifiedEdges', a: a};
+};
+var $w0rm$elm_physics$Collision$SphereConvex$isAFaceContact = function (testFaceResult) {
+	if (testFaceResult.$ === 'FaceContact') {
+		return true;
+	} else {
+		return false;
+	}
+};
+var $w0rm$elm_physics$Collision$SphereConvex$listRecurseUntil = F4(
+	function (test, fn, resultSoFar, list) {
+		listRecurseUntil:
+		while (true) {
+			if (test(resultSoFar)) {
+				return resultSoFar;
+			} else {
+				if (list.b) {
+					var head = list.a;
+					var tail = list.b;
+					var acc = A2(fn, head, resultSoFar);
+					var $temp$test = test,
+						$temp$fn = fn,
+						$temp$resultSoFar = acc,
+						$temp$list = tail;
+					test = $temp$test;
+					fn = $temp$fn;
+					resultSoFar = $temp$resultSoFar;
+					list = $temp$list;
+					continue listRecurseUntil;
+				} else {
+					return resultSoFar;
+				}
+			}
+		}
+	});
+var $w0rm$elm_physics$Collision$SphereConvex$PossibleVertexContact = function (a) {
+	return {$: 'PossibleVertexContact', a: a};
+};
+var $w0rm$elm_physics$Collision$SphereConvex$isAnEdgeContact = function (testEdgeResult) {
+	if (testEdgeResult.$ === 'EdgeContact') {
+		return true;
+	} else {
+		return false;
+	}
+};
+var $w0rm$elm_physics$Collision$SphereConvex$EdgeContact = function (a) {
+	return {$: 'EdgeContact', a: a};
+};
+var $w0rm$elm_physics$Collision$SphereConvex$sphereTestEdge = F3(
+	function (prevVertex, vertex, statusQuo) {
+		var minDistanceSq = statusQuo.b;
+		var edge = A2($w0rm$elm_physics$Internal$Vector3$sub, vertex, prevVertex);
+		var edgeUnit = $w0rm$elm_physics$Internal$Vector3$normalize(edge);
+		var offset = -A2($w0rm$elm_physics$Internal$Vector3$dot, prevVertex, edgeUnit);
+		var betterVertexContact = function (candidate) {
+			var vertexLengthSq = $w0rm$elm_physics$Internal$Vector3$lengthSquared(candidate);
+			return ((vertexLengthSq - minDistanceSq) < 0) ? _Utils_Tuple2(
+				$elm$core$Maybe$Just(candidate),
+				vertexLengthSq) : statusQuo;
+		};
+		if (offset < 0) {
+			return $w0rm$elm_physics$Collision$SphereConvex$PossibleVertexContact(
+				betterVertexContact(prevVertex));
+		} else {
+			if (((offset * offset) - $w0rm$elm_physics$Internal$Vector3$lengthSquared(edge)) > 0) {
+				return $w0rm$elm_physics$Collision$SphereConvex$PossibleVertexContact(
+					betterVertexContact(vertex));
+			} else {
+				var edgeContact = A2(
+					$w0rm$elm_physics$Internal$Vector3$add,
+					prevVertex,
+					A2($w0rm$elm_physics$Internal$Vector3$scale, offset, edgeUnit));
+				var edgeDistanceSq = $w0rm$elm_physics$Internal$Vector3$lengthSquared(edgeContact);
+				return ((edgeDistanceSq - minDistanceSq) < 0) ? $w0rm$elm_physics$Collision$SphereConvex$EdgeContact(
+					_Utils_Tuple2(edgeContact, edgeDistanceSq)) : $w0rm$elm_physics$Collision$SphereConvex$PossibleVertexContact(statusQuo);
+			}
+		}
+	});
+var $w0rm$elm_physics$Collision$SphereConvex$sphereTestBoundary = F2(
+	function (faceEdges, statusQuo) {
+		return A4(
+			$w0rm$elm_physics$Collision$SphereConvex$listRecurseUntil,
+			$w0rm$elm_physics$Collision$SphereConvex$isAnEdgeContact,
+			F2(
+				function (_v0, statusQuo1) {
+					var prevVertex = _v0.a;
+					var vertex = _v0.b;
+					if (statusQuo1.$ === 'PossibleVertexContact') {
+						var soFar = statusQuo1.a;
+						return A3($w0rm$elm_physics$Collision$SphereConvex$sphereTestEdge, prevVertex, vertex, soFar);
+					} else {
+						return statusQuo1;
+					}
+				}),
+			statusQuo,
+			faceEdges);
+	});
+var $w0rm$elm_physics$Collision$SphereConvex$sphereTestBoundaries = F2(
+	function (radius, faceEdgeList) {
+		return A3(
+			$elm$core$List$foldl,
+			$w0rm$elm_physics$Collision$SphereConvex$sphereTestBoundary,
+			$w0rm$elm_physics$Collision$SphereConvex$PossibleVertexContact(
+				_Utils_Tuple2($elm$core$Maybe$Nothing, radius * radius)),
+			faceEdgeList);
+	});
+var $w0rm$elm_physics$Collision$SphereConvex$FaceContact = F2(
+	function (a, b) {
+		return {$: 'FaceContact', a: a, b: b};
+	});
+var $w0rm$elm_physics$Collision$SphereConvex$originProjection = F2(
+	function (vertices, normal) {
+		return A3(
+			$w0rm$elm_physics$Shapes$Convex$foldFaceEdges,
+			F3(
+				function (prevVertex, vertex, acc) {
+					var edge_x_normal = A2(
+						$w0rm$elm_physics$Internal$Vector3$cross,
+						normal,
+						A2($w0rm$elm_physics$Internal$Vector3$sub, vertex, prevVertex));
+					return (A2($w0rm$elm_physics$Internal$Vector3$dot, edge_x_normal, prevVertex) < 0) ? A2(
+						$elm$core$List$cons,
+						_Utils_Tuple2(prevVertex, vertex),
+						acc) : acc;
+				}),
+			_List_Nil,
+			vertices);
+	});
+var $w0rm$elm_physics$Collision$SphereConvex$sphereTestFace = F4(
+	function (radius, normal, vertices, acc) {
+		var faceDistance = function () {
+			if (vertices.b) {
+				var point = vertices.a;
+				return -A2($w0rm$elm_physics$Internal$Vector3$dot, normal, point);
+			} else {
+				return -1;
+			}
+		}();
+		if (((faceDistance - radius) < 0) && (faceDistance > 0.0)) {
+			var _v0 = A2($w0rm$elm_physics$Collision$SphereConvex$originProjection, vertices, normal);
+			if (!_v0.b) {
+				return A2($w0rm$elm_physics$Collision$SphereConvex$FaceContact, normal, faceDistance);
+			} else {
+				var separatingEdges = _v0;
+				return $w0rm$elm_physics$Collision$SphereConvex$QualifiedEdges(
+					A2($elm$core$List$cons, separatingEdges, acc));
+			}
+		} else {
+			return $w0rm$elm_physics$Collision$SphereConvex$QualifiedEdges(acc);
+		}
+	});
+var $w0rm$elm_physics$Collision$SphereConvex$sphereContact = F3(
+	function (center, radius, _v0) {
+		var faces = _v0.faces;
+		var sphereFaceContact = F2(
+			function (normal, distance) {
+				return _Utils_Tuple2(
+					$elm$core$Maybe$Just(
+						A2(
+							$w0rm$elm_physics$Internal$Vector3$sub,
+							center,
+							A2($w0rm$elm_physics$Internal$Vector3$scale, distance, normal))),
+					radius - distance);
+			});
+		var sphereBoundaryContact = F2(
+			function (localContact, distanceSq) {
+				return _Utils_Tuple2(
+					$elm$core$Maybe$Just(
+						A2($w0rm$elm_physics$Internal$Vector3$add, localContact, center)),
+					radius - $elm$core$Basics$sqrt(distanceSq));
+			});
+		var spherePossibleBoundaryContact = function (faceEdgeList) {
+			var _v3 = A2($w0rm$elm_physics$Collision$SphereConvex$sphereTestBoundaries, radius, faceEdgeList);
+			if (_v3.$ === 'PossibleVertexContact') {
+				if (_v3.a.a.$ === 'Just') {
+					var _v4 = _v3.a;
+					var localContact = _v4.a.a;
+					var distanceSq = _v4.b;
+					return A2(sphereBoundaryContact, localContact, distanceSq);
+				} else {
+					var noContact = _v3.a;
+					return noContact;
+				}
+			} else {
+				var _v5 = _v3.a;
+				var localContact = _v5.a;
+				var distanceSq = _v5.b;
+				return A2(sphereBoundaryContact, localContact, distanceSq);
+			}
+		};
+		var reframedVertices = function (faceVertices) {
+			return A3(
+				$elm$core$List$foldl,
+				F2(
+					function (vertex, acc) {
+						return A2(
+							$elm$core$List$cons,
+							A2($w0rm$elm_physics$Internal$Vector3$sub, vertex, center),
+							acc);
+					}),
+				_List_Nil,
+				faceVertices);
+		};
+		var testFaceResult = A4(
+			$w0rm$elm_physics$Collision$SphereConvex$listRecurseUntil,
+			$w0rm$elm_physics$Collision$SphereConvex$isAFaceContact,
+			F2(
+				function (face, statusQuo) {
+					if (statusQuo.$ === 'QualifiedEdges') {
+						var acc = statusQuo.a;
+						return A4(
+							$w0rm$elm_physics$Collision$SphereConvex$sphereTestFace,
+							radius,
+							face.normal,
+							reframedVertices(face.vertices),
+							acc);
+					} else {
+						return statusQuo;
+					}
+				}),
+			$w0rm$elm_physics$Collision$SphereConvex$QualifiedEdges(_List_Nil),
+			faces);
+		if (testFaceResult.$ === 'QualifiedEdges') {
+			var faceEdgeList = testFaceResult.a;
+			return spherePossibleBoundaryContact(faceEdgeList);
+		} else {
+			var faceNormal = testFaceResult.a;
+			var faceDistance = testFaceResult.b;
+			return A2(sphereFaceContact, faceNormal, faceDistance);
+		}
+	});
+var $w0rm$elm_physics$Collision$SphereConvex$addContacts = F4(
+	function (orderContact, _v0, hull2, contacts) {
+		var radius = _v0.radius;
+		var position = _v0.position;
+		var _v1 = A3($w0rm$elm_physics$Collision$SphereConvex$sphereContact, position, radius, hull2);
+		var maybeContact = _v1.a;
+		var penetration = _v1.b;
+		if (maybeContact.$ === 'Just') {
+			var contact2 = maybeContact.a;
+			var normal = A2($w0rm$elm_physics$Internal$Vector3$direction, contact2, position);
+			return A2(
+				$elm$core$List$cons,
+				orderContact(
+					{
+						ni: normal,
+						pi: {x: contact2.x + (penetration * normal.x), y: contact2.y + (penetration * normal.y), z: contact2.z + (penetration * normal.z)},
+						pj: contact2
+					}),
+				contacts);
+		} else {
+			return contacts;
+		}
+	});
+var $w0rm$elm_physics$Internal$Vector3$distance = F2(
+	function (a, b) {
+		var z = b.z - a.z;
+		var y = b.y - a.y;
+		var x = b.x - a.x;
+		return $elm$core$Basics$sqrt(((x * x) + (y * y)) + (z * z));
+	});
+var $w0rm$elm_physics$Collision$SphereParticle$addContacts = F4(
+	function (orderContact, _v0, particlePosition, contacts) {
+		var radius = _v0.radius;
+		var position = _v0.position;
+		var normal = A2($w0rm$elm_physics$Internal$Vector3$direction, particlePosition, position);
+		var distance = A2($w0rm$elm_physics$Internal$Vector3$distance, particlePosition, position) - radius;
+		return (distance > 0) ? contacts : A2(
+			$elm$core$List$cons,
+			orderContact(
+				{
+					ni: normal,
+					pi: A2(
+						$w0rm$elm_physics$Internal$Vector3$add,
+						position,
+						A2($w0rm$elm_physics$Internal$Vector3$scale, radius - distance, normal)),
+					pj: particlePosition
+				}),
+			contacts);
+	});
+var $w0rm$elm_physics$Collision$SphereSphere$addContacts = F3(
+	function (sphere1, sphere2, contacts) {
+		var radius2 = sphere2.radius;
+		var radius1 = sphere1.radius;
+		var center2 = sphere2.position;
+		var center1 = sphere1.position;
+		var distance = (A2($w0rm$elm_physics$Internal$Vector3$distance, center2, center1) - radius1) - radius2;
+		var normal = A2($w0rm$elm_physics$Internal$Vector3$direction, center2, center1);
+		return (distance > 0) ? contacts : A2(
+			$elm$core$List$cons,
+			{
+				ni: normal,
+				pi: A2(
+					$w0rm$elm_physics$Internal$Vector3$add,
+					center1,
+					A2($w0rm$elm_physics$Internal$Vector3$scale, radius1 - distance, normal)),
+				pj: A2(
+					$w0rm$elm_physics$Internal$Vector3$add,
+					center2,
+					A2($w0rm$elm_physics$Internal$Vector3$scale, -radius2, normal))
+			},
+			contacts);
+	});
+var $w0rm$elm_physics$Internal$Contact$flip = function (contact) {
+	return {
+		ni: $w0rm$elm_physics$Internal$Vector3$negate(contact.ni),
+		pi: contact.pj,
+		pj: contact.pi
+	};
+};
+var $w0rm$elm_physics$Internal$NarrowPhase$addShapeContacts = F3(
+	function (shape1, shape2, contacts) {
+		switch (shape1.$) {
+			case 'Convex':
+				var convex1 = shape1.a;
+				switch (shape2.$) {
+					case 'Convex':
+						var convex2 = shape2.a;
+						return A3($w0rm$elm_physics$Collision$ConvexConvex$addContacts, convex1, convex2, contacts);
+					case 'Plane':
+						var plane2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$PlaneConvex$addContacts, $w0rm$elm_physics$Internal$Contact$flip, plane2, convex1, contacts);
+					case 'Sphere':
+						var sphere2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$SphereConvex$addContacts, $w0rm$elm_physics$Internal$Contact$flip, sphere2, convex1, contacts);
+					default:
+						var particle2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$ParticleConvex$addContacts, $w0rm$elm_physics$Internal$Contact$flip, particle2, convex1, contacts);
+				}
+			case 'Plane':
+				var plane1 = shape1.a;
+				switch (shape2.$) {
+					case 'Plane':
+						return contacts;
+					case 'Convex':
+						var convex2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$PlaneConvex$addContacts, $elm$core$Basics$identity, plane1, convex2, contacts);
+					case 'Sphere':
+						var sphere2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$PlaneSphere$addContacts, $elm$core$Basics$identity, plane1, sphere2, contacts);
+					default:
+						var particle2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$PlaneParticle$addContacts, $elm$core$Basics$identity, plane1, particle2, contacts);
+				}
+			case 'Sphere':
+				var sphere1 = shape1.a;
+				switch (shape2.$) {
+					case 'Plane':
+						var plane2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$PlaneSphere$addContacts, $w0rm$elm_physics$Internal$Contact$flip, plane2, sphere1, contacts);
+					case 'Convex':
+						var convex2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$SphereConvex$addContacts, $elm$core$Basics$identity, sphere1, convex2, contacts);
+					case 'Sphere':
+						var sphere2 = shape2.a;
+						return A3($w0rm$elm_physics$Collision$SphereSphere$addContacts, sphere1, sphere2, contacts);
+					default:
+						var particle2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$SphereParticle$addContacts, $elm$core$Basics$identity, sphere1, particle2, contacts);
+				}
+			default:
+				var particle1 = shape1.a;
+				switch (shape2.$) {
+					case 'Plane':
+						var plane2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$PlaneParticle$addContacts, $w0rm$elm_physics$Internal$Contact$flip, plane2, particle1, contacts);
+					case 'Convex':
+						var convex2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$ParticleConvex$addContacts, $elm$core$Basics$identity, particle1, convex2, contacts);
+					case 'Sphere':
+						var sphere2 = shape2.a;
+						return A4($w0rm$elm_physics$Collision$SphereParticle$addContacts, $w0rm$elm_physics$Internal$Contact$flip, sphere2, particle1, contacts);
+					default:
+						return contacts;
+				}
+		}
+	});
+var $w0rm$elm_physics$Internal$NarrowPhase$getContactsHelp = F5(
+	function (shape1, currentShapes1, currentShapes2, shapes2, result) {
+		getContactsHelp:
+		while (true) {
+			if (currentShapes2.b) {
+				var shape2 = currentShapes2.a;
+				var remainingShapes2 = currentShapes2.b;
+				var $temp$shape1 = shape1,
+					$temp$currentShapes1 = currentShapes1,
+					$temp$currentShapes2 = remainingShapes2,
+					$temp$shapes2 = shapes2,
+					$temp$result = A3($w0rm$elm_physics$Internal$NarrowPhase$addShapeContacts, shape1, shape2, result);
+				shape1 = $temp$shape1;
+				currentShapes1 = $temp$currentShapes1;
+				currentShapes2 = $temp$currentShapes2;
+				shapes2 = $temp$shapes2;
+				result = $temp$result;
+				continue getContactsHelp;
+			} else {
+				if (currentShapes1.b) {
+					var newShape1 = currentShapes1.a;
+					var remainingShapes1 = currentShapes1.b;
+					var $temp$shape1 = newShape1,
+						$temp$currentShapes1 = remainingShapes1,
+						$temp$currentShapes2 = shapes2,
+						$temp$shapes2 = shapes2,
+						$temp$result = result;
+					shape1 = $temp$shape1;
+					currentShapes1 = $temp$currentShapes1;
+					currentShapes2 = $temp$currentShapes2;
+					shapes2 = $temp$shapes2;
+					result = $temp$result;
+					continue getContactsHelp;
+				} else {
+					return result;
+				}
+			}
+		}
+	});
+var $w0rm$elm_physics$Internal$NarrowPhase$getContacts = F2(
+	function (shapes1, shapes2) {
+		if (shapes1.b) {
+			var shape1 = shapes1.a;
+			var remainingShapes1 = shapes1.b;
+			return A5($w0rm$elm_physics$Internal$NarrowPhase$getContactsHelp, shape1, remainingShapes1, shapes2, shapes2, _List_Nil);
+		} else {
+			return _List_Nil;
+		}
+	});
+var $w0rm$elm_physics$Internal$BroadPhase$addContactsHelp = F4(
+	function (body1, currentBodies, restBodies, result) {
+		addContactsHelp:
+		while (true) {
+			if (restBodies.b) {
+				var body2 = restBodies.a;
+				var newRestBodies = restBodies.b;
+				var $temp$body1 = body1,
+					$temp$currentBodies = currentBodies,
+					$temp$restBodies = newRestBodies,
+					$temp$result = function () {
+					if (A2($w0rm$elm_physics$Internal$BroadPhase$bodiesMayContact, body1, body2)) {
+						var _v1 = A2($w0rm$elm_physics$Internal$NarrowPhase$getContacts, body1.worldShapes, body2.worldShapes);
+						if (!_v1.b) {
+							return result;
+						} else {
+							var contacts = _v1;
+							return A2(
+								$elm$core$List$cons,
+								{body1: body1, body2: body2, contacts: contacts},
+								result);
+						}
+					} else {
+						return result;
+					}
+				}();
+				body1 = $temp$body1;
+				currentBodies = $temp$currentBodies;
+				restBodies = $temp$restBodies;
+				result = $temp$result;
+				continue addContactsHelp;
+			} else {
+				if (currentBodies.b) {
+					var newBody1 = currentBodies.a;
+					var newRestBodies = currentBodies.b;
+					var $temp$body1 = newBody1,
+						$temp$currentBodies = newRestBodies,
+						$temp$restBodies = newRestBodies,
+						$temp$result = result;
+					body1 = $temp$body1;
+					currentBodies = $temp$currentBodies;
+					restBodies = $temp$restBodies;
+					result = $temp$result;
+					continue addContactsHelp;
+				} else {
+					return result;
+				}
+			}
+		}
+	});
+var $w0rm$elm_physics$Internal$BroadPhase$addContacts = function (world) {
+	return _Utils_update(
+		world,
+		{
+			contactGroups: function () {
+				var _v0 = world.bodies;
+				if (_v0.b) {
+					var body = _v0.a;
+					var restBodies = _v0.b;
+					return A4($w0rm$elm_physics$Internal$BroadPhase$addContactsHelp, body, restBodies, restBodies, _List_Nil);
+				} else {
+					return _List_Nil;
+				}
+			}()
+		});
+};
+var $ianmackenzie$elm_units$Duration$inSeconds = function (_v0) {
+	var numSeconds = _v0.a;
+	return numSeconds;
+};
+var $w0rm$elm_physics$Internal$Equation$computeContactB = F5(
+	function (bounciness, _v0, bi, bj, _v1) {
+		var pi = _v0.pi;
+		var pj = _v0.pj;
+		var ni = _v0.ni;
+		var spookA = _v1.spookA;
+		var spookB = _v1.spookB;
+		var wA = _v1.wA;
+		var wB = _v1.wB;
+		var gW = (((bounciness + 1) * (A2($w0rm$elm_physics$Internal$Vector3$dot, bj.velocity, ni) - A2($w0rm$elm_physics$Internal$Vector3$dot, bi.velocity, ni))) + A2($w0rm$elm_physics$Internal$Vector3$dot, bj.angularVelocity, wB)) + A2($w0rm$elm_physics$Internal$Vector3$dot, bi.angularVelocity, wA);
+		var g = (((pj.x - pi.x) * ni.x) + ((pj.y - pi.y) * ni.y)) + ((pj.z - pi.z) * ni.z);
+		return ((-g) * spookA) - (gW * spookB);
+	});
+var $w0rm$elm_physics$Internal$Equation$defaultRelaxation = 3;
+var $w0rm$elm_physics$Internal$Equation$defaultStiffness = 10000000;
+var $w0rm$elm_physics$Internal$Equation$computeC = F3(
+	function (bi, bj, _v0) {
+		var wA = _v0.wA;
+		var wB = _v0.wB;
+		var spookEps = _v0.spookEps;
+		return (((((((bi.invMass + bj.invMass) + (wA.x * (((bi.invInertiaWorld.m11 * wA.x) + (bi.invInertiaWorld.m12 * wA.y)) + (bi.invInertiaWorld.m13 * wA.z)))) + (wA.y * (((bi.invInertiaWorld.m21 * wA.x) + (bi.invInertiaWorld.m22 * wA.y)) + (bi.invInertiaWorld.m23 * wA.z)))) + (wA.z * (((bi.invInertiaWorld.m31 * wA.x) + (bi.invInertiaWorld.m32 * wA.y)) + (bi.invInertiaWorld.m33 * wA.z)))) + (wB.x * (((bj.invInertiaWorld.m11 * wB.x) + (bj.invInertiaWorld.m12 * wB.y)) + (bj.invInertiaWorld.m13 * wB.z)))) + (wB.y * (((bj.invInertiaWorld.m21 * wB.x) + (bj.invInertiaWorld.m22 * wB.y)) + (bj.invInertiaWorld.m23 * wB.z)))) + (wB.z * (((bj.invInertiaWorld.m31 * wB.x) + (bj.invInertiaWorld.m32 * wB.y)) + (bj.invInertiaWorld.m33 * wB.z)))) + spookEps;
+	});
+var $w0rm$elm_physics$Internal$Equation$computeGiMf = F4(
+	function (gravity, bi, bj, _v0) {
+		var wA = _v0.wA;
+		var vB = _v0.vB;
+		var wB = _v0.wB;
+		var gravityj = (bj.mass > 0) ? gravity : $w0rm$elm_physics$Internal$Vector3$zero;
+		var gravityi = (bi.mass > 0) ? gravity : $w0rm$elm_physics$Internal$Vector3$zero;
+		return (((((((-(((vB.x * ((bi.invMass * bi.force.x) + gravityi.x)) + (vB.y * ((bi.invMass * bi.force.y) + gravityi.y))) + (vB.z * ((bi.invMass * bi.force.z) + gravityi.z)))) + (((vB.x * ((bj.invMass * bj.force.x) + gravityj.x)) + (vB.y * ((bj.invMass * bj.force.y) + gravityj.y))) + (vB.z * ((bj.invMass * bj.force.z) + gravityj.z)))) + (wA.x * (((bi.invInertiaWorld.m11 * bi.torque.x) + (bi.invInertiaWorld.m12 * bi.torque.y)) + (bi.invInertiaWorld.m13 * bi.torque.z)))) + (wA.y * (((bi.invInertiaWorld.m21 * bi.torque.x) + (bi.invInertiaWorld.m22 * bi.torque.y)) + (bi.invInertiaWorld.m23 * bi.torque.z)))) + (wA.z * (((bi.invInertiaWorld.m31 * bi.torque.x) + (bi.invInertiaWorld.m32 * bi.torque.y)) + (bi.invInertiaWorld.m33 * bi.torque.z)))) + (wB.x * (((bj.invInertiaWorld.m11 * bj.torque.x) + (bj.invInertiaWorld.m12 * bj.torque.y)) + (bj.invInertiaWorld.m13 * bj.torque.z)))) + (wB.y * (((bj.invInertiaWorld.m21 * bj.torque.x) + (bj.invInertiaWorld.m22 * bj.torque.y)) + (bj.invInertiaWorld.m23 * bj.torque.z)))) + (wB.z * (((bj.invInertiaWorld.m31 * bj.torque.x) + (bj.invInertiaWorld.m32 * bj.torque.y)) + (bj.invInertiaWorld.m33 * bj.torque.z)));
+	});
+var $w0rm$elm_physics$Internal$Equation$initSolverParams = F5(
+	function (computeB, ctx, bi, bj, solverEquation) {
+		return {
+			equation: {
+				maxForce: solverEquation.maxForce,
+				minForce: solverEquation.minForce,
+				solverB: A3(computeB, bi, bj, solverEquation) - (ctx.dt * A4($w0rm$elm_physics$Internal$Equation$computeGiMf, ctx.gravity, bi, bj, solverEquation)),
+				solverInvC: 1 / A3($w0rm$elm_physics$Internal$Equation$computeC, bi, bj, solverEquation),
+				spookA: solverEquation.spookA,
+				spookB: solverEquation.spookB,
+				spookEps: solverEquation.spookEps,
+				vB: solverEquation.vB,
+				wA: solverEquation.wA,
+				wB: solverEquation.wB
+			},
+			solverLambda: 0
+		};
+	});
+var $w0rm$elm_physics$Internal$Equation$addDistanceConstraintEquations = F4(
+	function (ctx, body1, body2, distance) {
+		var spookEps = 4.0 / (((ctx.dt * ctx.dt) * $w0rm$elm_physics$Internal$Equation$defaultStiffness) * (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation)));
+		var spookB = (4.0 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation) / (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation));
+		var spookA = 4.0 / (ctx.dt * (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation)));
+		var ni = A2(
+			$w0rm$elm_physics$Internal$Vector3$direction,
+			$w0rm$elm_physics$Internal$Transform3d$originPoint(body2.transform3d),
+			$w0rm$elm_physics$Internal$Transform3d$originPoint(body1.transform3d));
+		var halfDistance = distance / 2;
+		var ri = A2($w0rm$elm_physics$Internal$Vector3$scale, halfDistance, ni);
+		var rj = A2($w0rm$elm_physics$Internal$Vector3$scale, -halfDistance, ni);
+		return $elm$core$List$cons(
+			A5(
+				$w0rm$elm_physics$Internal$Equation$initSolverParams,
+				A2(
+					$w0rm$elm_physics$Internal$Equation$computeContactB,
+					0,
+					{
+						ni: ni,
+						pi: A2(
+							$w0rm$elm_physics$Internal$Vector3$add,
+							ri,
+							$w0rm$elm_physics$Internal$Transform3d$originPoint(body1.transform3d)),
+						pj: A2(
+							$w0rm$elm_physics$Internal$Vector3$add,
+							rj,
+							$w0rm$elm_physics$Internal$Transform3d$originPoint(body2.transform3d))
+					}),
+				ctx,
+				body1,
+				body2,
+				{
+					maxForce: 1000000,
+					minForce: -1000000,
+					solverB: 0,
+					solverInvC: 0,
+					spookA: spookA,
+					spookB: spookB,
+					spookEps: spookEps,
+					vB: ni,
+					wA: A2($w0rm$elm_physics$Internal$Vector3$cross, ni, ri),
+					wB: A2($w0rm$elm_physics$Internal$Vector3$cross, rj, ni)
+				}));
+	});
+var $w0rm$elm_physics$Internal$Equation$computeGW = F3(
+	function (bi, bj, _v0) {
+		var wA = _v0.wA;
+		var vB = _v0.vB;
+		var wB = _v0.wB;
+		return (((-(((vB.x * bi.velocity.x) + (vB.y * bi.velocity.y)) + (vB.z * bi.velocity.z))) + (((wA.x * bi.angularVelocity.x) + (wA.y * bi.angularVelocity.y)) + (wA.z * bi.angularVelocity.z))) + (((vB.x * bj.velocity.x) + (vB.y * bj.velocity.y)) + (vB.z * bj.velocity.z))) + (((wB.x * bj.angularVelocity.x) + (wB.y * bj.angularVelocity.y)) + (wB.z * bj.angularVelocity.z));
+	});
+var $w0rm$elm_physics$Internal$Equation$computeRotationalB = F4(
+	function (_v0, bi, bj, solverEquation) {
+		var ni = _v0.ni;
+		var nj = _v0.nj;
+		var maxAngleCos = _v0.maxAngleCos;
+		var spookA = solverEquation.spookA;
+		var spookB = solverEquation.spookB;
+		var gW = A3($w0rm$elm_physics$Internal$Equation$computeGW, bi, bj, solverEquation);
+		var g = maxAngleCos - A2($w0rm$elm_physics$Internal$Vector3$dot, ni, nj);
+		return ((-g) * spookA) - (gW * spookB);
+	});
+var $w0rm$elm_physics$Internal$Vector3$xAxis = {x: 1, y: 0, z: 0};
+var $w0rm$elm_physics$Internal$Vector3$yAxis = {x: 0, y: 1, z: 0};
+var $w0rm$elm_physics$Internal$Vector3$tangents = function (vec) {
+	if ($w0rm$elm_physics$Internal$Vector3$lengthSquared(vec) > 0) {
+		var normalized = $w0rm$elm_physics$Internal$Vector3$normalize(vec);
+		var v = ($elm$core$Basics$abs(normalized.x) < 0.9) ? A2($w0rm$elm_physics$Internal$Vector3$cross, normalized, $w0rm$elm_physics$Internal$Vector3$xAxis) : A2($w0rm$elm_physics$Internal$Vector3$cross, normalized, $w0rm$elm_physics$Internal$Vector3$yAxis);
+		return _Utils_Tuple2(
+			v,
+			A2($w0rm$elm_physics$Internal$Vector3$cross, normalized, v));
+	} else {
+		return _Utils_Tuple2($w0rm$elm_physics$Internal$Vector3$xAxis, $w0rm$elm_physics$Internal$Vector3$yAxis);
+	}
+};
+var $w0rm$elm_physics$Internal$Equation$addHingeRotationalConstraintEquations = F6(
+	function (ctx, body1, body2, axis1, axis2, equations) {
+		var worldAxis2 = A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, body2.transform3d, axis2);
+		var worldAxis1 = A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, body1.transform3d, axis1);
+		var spookEps = 4.0 / (((ctx.dt * ctx.dt) * $w0rm$elm_physics$Internal$Equation$defaultStiffness) * (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation)));
+		var spookB = (4.0 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation) / (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation));
+		var spookA = 4.0 / (ctx.dt * (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation)));
+		var nj2 = worldAxis2;
+		var nj1 = worldAxis2;
+		var _v0 = $w0rm$elm_physics$Internal$Vector3$tangents(worldAxis1);
+		var ni1 = _v0.a;
+		var ni2 = _v0.b;
+		return A2(
+			$elm$core$List$cons,
+			A5(
+				$w0rm$elm_physics$Internal$Equation$initSolverParams,
+				$w0rm$elm_physics$Internal$Equation$computeRotationalB(
+					{maxAngleCos: 0, ni: ni1, nj: nj1}),
+				ctx,
+				body1,
+				body2,
+				{
+					maxForce: 1000000,
+					minForce: -1000000,
+					solverB: 0,
+					solverInvC: 0,
+					spookA: spookA,
+					spookB: spookB,
+					spookEps: spookEps,
+					vB: $w0rm$elm_physics$Internal$Vector3$zero,
+					wA: A2($w0rm$elm_physics$Internal$Vector3$cross, nj1, ni1),
+					wB: A2($w0rm$elm_physics$Internal$Vector3$cross, ni1, nj1)
+				}),
+			A2(
+				$elm$core$List$cons,
+				A5(
+					$w0rm$elm_physics$Internal$Equation$initSolverParams,
+					$w0rm$elm_physics$Internal$Equation$computeRotationalB(
+						{maxAngleCos: 0, ni: ni2, nj: nj2}),
+					ctx,
+					body1,
+					body2,
+					{
+						maxForce: 1000000,
+						minForce: -1000000,
+						solverB: 0,
+						solverInvC: 0,
+						spookA: spookA,
+						spookB: spookB,
+						spookEps: spookEps,
+						vB: $w0rm$elm_physics$Internal$Vector3$zero,
+						wA: A2($w0rm$elm_physics$Internal$Vector3$cross, nj2, ni2),
+						wB: A2($w0rm$elm_physics$Internal$Vector3$cross, ni2, nj2)
+					}),
+				equations));
+	});
+var $w0rm$elm_physics$Internal$Equation$addLockRotationalConstraintEquations = function (ctx) {
+	return function (body1) {
+		return function (body2) {
+			return function (x1) {
+				return function (x2) {
+					return function (y1) {
+						return function (y2) {
+							return function (z1) {
+								return function (z2) {
+									return function (equations) {
+										var spookEps = 4.0 / (((ctx.dt * ctx.dt) * $w0rm$elm_physics$Internal$Equation$defaultStiffness) * (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation)));
+										var spookB = (4.0 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation) / (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation));
+										var spookA = 4.0 / (ctx.dt * (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation)));
+										var nj3 = A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, body2.transform3d, x2);
+										var nj2 = A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, body2.transform3d, z2);
+										var nj1 = A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, body2.transform3d, y2);
+										var ni3 = A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, body1.transform3d, z1);
+										var ni2 = A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, body1.transform3d, y1);
+										var ni1 = A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, body1.transform3d, x1);
+										return A2(
+											$elm$core$List$cons,
+											A5(
+												$w0rm$elm_physics$Internal$Equation$initSolverParams,
+												$w0rm$elm_physics$Internal$Equation$computeRotationalB(
+													{maxAngleCos: 0, ni: ni1, nj: nj1}),
+												ctx,
+												body1,
+												body2,
+												{
+													maxForce: 1000000,
+													minForce: -1000000,
+													solverB: 0,
+													solverInvC: 0,
+													spookA: spookA,
+													spookB: spookB,
+													spookEps: spookEps,
+													vB: $w0rm$elm_physics$Internal$Vector3$zero,
+													wA: A2($w0rm$elm_physics$Internal$Vector3$cross, nj1, ni1),
+													wB: A2($w0rm$elm_physics$Internal$Vector3$cross, ni1, nj1)
+												}),
+											A2(
+												$elm$core$List$cons,
+												A5(
+													$w0rm$elm_physics$Internal$Equation$initSolverParams,
+													$w0rm$elm_physics$Internal$Equation$computeRotationalB(
+														{maxAngleCos: 0, ni: ni2, nj: nj2}),
+													ctx,
+													body1,
+													body2,
+													{
+														maxForce: 1000000,
+														minForce: -1000000,
+														solverB: 0,
+														solverInvC: 0,
+														spookA: spookA,
+														spookB: spookB,
+														spookEps: spookEps,
+														vB: $w0rm$elm_physics$Internal$Vector3$zero,
+														wA: A2($w0rm$elm_physics$Internal$Vector3$cross, nj2, ni2),
+														wB: A2($w0rm$elm_physics$Internal$Vector3$cross, ni2, nj2)
+													}),
+												A2(
+													$elm$core$List$cons,
+													A5(
+														$w0rm$elm_physics$Internal$Equation$initSolverParams,
+														$w0rm$elm_physics$Internal$Equation$computeRotationalB(
+															{maxAngleCos: 0, ni: ni3, nj: nj3}),
+														ctx,
+														body1,
+														body2,
+														{
+															maxForce: 1000000,
+															minForce: -1000000,
+															solverB: 0,
+															solverInvC: 0,
+															spookA: spookA,
+															spookB: spookB,
+															spookEps: spookEps,
+															vB: $w0rm$elm_physics$Internal$Vector3$zero,
+															wA: A2($w0rm$elm_physics$Internal$Vector3$cross, nj3, ni3),
+															wB: A2($w0rm$elm_physics$Internal$Vector3$cross, ni3, nj3)
+														}),
+													equations)));
+									};
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
+var $w0rm$elm_physics$Internal$Vector3$zAxis = {x: 0, y: 0, z: 1};
+var $w0rm$elm_physics$Internal$Vector3$basis = _List_fromArray(
+	[$w0rm$elm_physics$Internal$Vector3$xAxis, $w0rm$elm_physics$Internal$Vector3$yAxis, $w0rm$elm_physics$Internal$Vector3$zAxis]);
+var $w0rm$elm_physics$Internal$Equation$addPointToPointConstraintEquations = F6(
+	function (ctx, body1, body2, pivot1, pivot2, equations) {
+		var spookEps = 4.0 / (((ctx.dt * ctx.dt) * $w0rm$elm_physics$Internal$Equation$defaultStiffness) * (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation)));
+		var spookB = (4.0 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation) / (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation));
+		var spookA = 4.0 / (ctx.dt * (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation)));
+		var rj = A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, body2.transform3d, pivot2);
+		var ri = A2($w0rm$elm_physics$Internal$Transform3d$directionPlaceIn, body1.transform3d, pivot1);
+		return A3(
+			$elm$core$List$foldl,
+			function (ni) {
+				return $elm$core$List$cons(
+					A5(
+						$w0rm$elm_physics$Internal$Equation$initSolverParams,
+						A2(
+							$w0rm$elm_physics$Internal$Equation$computeContactB,
+							0,
+							{
+								ni: ni,
+								pi: A2(
+									$w0rm$elm_physics$Internal$Vector3$add,
+									$w0rm$elm_physics$Internal$Transform3d$originPoint(body1.transform3d),
+									ri),
+								pj: A2(
+									$w0rm$elm_physics$Internal$Vector3$add,
+									$w0rm$elm_physics$Internal$Transform3d$originPoint(body2.transform3d),
+									rj)
+							}),
+						ctx,
+						body1,
+						body2,
+						{
+							maxForce: 1000000,
+							minForce: -1000000,
+							solverB: 0,
+							solverInvC: 0,
+							spookA: spookA,
+							spookB: spookB,
+							spookEps: spookEps,
+							vB: ni,
+							wA: A2($w0rm$elm_physics$Internal$Vector3$cross, ni, ri),
+							wB: A2($w0rm$elm_physics$Internal$Vector3$cross, rj, ni)
+						}));
+			},
+			equations,
+			$w0rm$elm_physics$Internal$Vector3$basis);
+	});
+var $w0rm$elm_physics$Internal$Equation$addConstraintEquations = F4(
+	function (ctx, body1, body2, constraint) {
+		switch (constraint.$) {
+			case 'PointToPoint':
+				var pivot1 = constraint.a;
+				var pivot2 = constraint.b;
+				return A5($w0rm$elm_physics$Internal$Equation$addPointToPointConstraintEquations, ctx, body1, body2, pivot1, pivot2);
+			case 'Hinge':
+				var pivot1 = constraint.a;
+				var axis1 = constraint.b;
+				var pivot2 = constraint.c;
+				var axis2 = constraint.d;
+				return A2(
+					$elm$core$Basics$composeR,
+					A5($w0rm$elm_physics$Internal$Equation$addPointToPointConstraintEquations, ctx, body1, body2, pivot1, pivot2),
+					A5($w0rm$elm_physics$Internal$Equation$addHingeRotationalConstraintEquations, ctx, body1, body2, axis1, axis2));
+			case 'Lock':
+				var pivot1 = constraint.a;
+				var x1 = constraint.b;
+				var y1 = constraint.c;
+				var z1 = constraint.d;
+				var pivot2 = constraint.e;
+				var x2 = constraint.f;
+				var y2 = constraint.g;
+				var z2 = constraint.h;
+				return A2(
+					$elm$core$Basics$composeR,
+					A5($w0rm$elm_physics$Internal$Equation$addPointToPointConstraintEquations, ctx, body1, body2, pivot1, pivot2),
+					A9($w0rm$elm_physics$Internal$Equation$addLockRotationalConstraintEquations, ctx, body1, body2, x1, x2, y1, y2, z1, z2));
+			default:
+				var distance = constraint.a;
+				return A4($w0rm$elm_physics$Internal$Equation$addDistanceConstraintEquations, ctx, body1, body2, distance);
+		}
+	});
+var $w0rm$elm_physics$Internal$Equation$constraintEquationsGroup = F4(
+	function (ctx, body1, body2, constraints) {
+		return {
+			bodyId1: body1.id,
+			bodyId2: body2.id,
+			equations: A3(
+				$elm$core$List$foldl,
+				A3($w0rm$elm_physics$Internal$Equation$addConstraintEquations, ctx, body1, body2),
+				_List_Nil,
+				constraints)
+		};
+	});
+var $w0rm$elm_physics$Internal$Equation$computeFrictionB = F3(
+	function (bi, bj, solverEquation) {
+		var spookB = solverEquation.spookB;
+		var gW = A3($w0rm$elm_physics$Internal$Equation$computeGW, bi, bj, solverEquation);
+		return (-gW) * spookB;
+	});
+var $w0rm$elm_physics$Internal$Equation$addContactEquations = F7(
+	function (ctx, maxFrictionForce, bounciness, body1, body2, contact, equations) {
+		var spookEps = 4.0 / (((ctx.dt * ctx.dt) * $w0rm$elm_physics$Internal$Equation$defaultStiffness) * (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation)));
+		var spookB = (4.0 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation) / (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation));
+		var spookA = 4.0 / (ctx.dt * (1 + (4 * $w0rm$elm_physics$Internal$Equation$defaultRelaxation)));
+		var rj = A2(
+			$w0rm$elm_physics$Internal$Vector3$sub,
+			contact.pj,
+			$w0rm$elm_physics$Internal$Transform3d$originPoint(body2.transform3d));
+		var ri = A2(
+			$w0rm$elm_physics$Internal$Vector3$sub,
+			contact.pi,
+			$w0rm$elm_physics$Internal$Transform3d$originPoint(body1.transform3d));
+		var _v0 = $w0rm$elm_physics$Internal$Vector3$tangents(contact.ni);
+		var t1 = _v0.a;
+		var t2 = _v0.b;
+		return A2(
+			$elm$core$List$cons,
+			A5(
+				$w0rm$elm_physics$Internal$Equation$initSolverParams,
+				A2($w0rm$elm_physics$Internal$Equation$computeContactB, bounciness, contact),
+				ctx,
+				body1,
+				body2,
+				{
+					maxForce: 1000000,
+					minForce: 0,
+					solverB: 0,
+					solverInvC: 0,
+					spookA: spookA,
+					spookB: spookB,
+					spookEps: spookEps,
+					vB: contact.ni,
+					wA: A2($w0rm$elm_physics$Internal$Vector3$cross, contact.ni, ri),
+					wB: A2($w0rm$elm_physics$Internal$Vector3$cross, rj, contact.ni)
+				}),
+			A2(
+				$elm$core$List$cons,
+				A5(
+					$w0rm$elm_physics$Internal$Equation$initSolverParams,
+					$w0rm$elm_physics$Internal$Equation$computeFrictionB,
+					ctx,
+					body1,
+					body2,
+					{
+						maxForce: maxFrictionForce,
+						minForce: -maxFrictionForce,
+						solverB: 0,
+						solverInvC: 0,
+						spookA: spookA,
+						spookB: spookB,
+						spookEps: spookEps,
+						vB: t1,
+						wA: A2($w0rm$elm_physics$Internal$Vector3$cross, t1, ri),
+						wB: A2($w0rm$elm_physics$Internal$Vector3$cross, rj, t1)
+					}),
+				A2(
+					$elm$core$List$cons,
+					A5(
+						$w0rm$elm_physics$Internal$Equation$initSolverParams,
+						$w0rm$elm_physics$Internal$Equation$computeFrictionB,
+						ctx,
+						body1,
+						body2,
+						{
+							maxForce: maxFrictionForce,
+							minForce: -maxFrictionForce,
+							solverB: 0,
+							solverInvC: 0,
+							spookA: spookA,
+							spookB: spookB,
+							spookEps: spookEps,
+							vB: t2,
+							wA: A2($w0rm$elm_physics$Internal$Vector3$cross, t2, ri),
+							wB: A2($w0rm$elm_physics$Internal$Vector3$cross, rj, t2)
+						}),
+					equations)));
+	});
+var $w0rm$elm_physics$Internal$Material$combine = F2(
+	function (v1, v2) {
+		var avg = (v1 + v2) * 0.5;
+		var temp = (1 + avg) - $elm$core$Basics$abs(1 - avg);
+		return (temp + $elm$core$Basics$abs(temp)) * 0.25;
+	});
+var $w0rm$elm_physics$Internal$Material$contactBounciness = F2(
+	function (m1, m2) {
+		return A2($w0rm$elm_physics$Internal$Material$combine, m1.bounciness, m2.bounciness);
+	});
+var $w0rm$elm_physics$Internal$Material$contactFriction = F2(
+	function (m1, m2) {
+		return A2($w0rm$elm_physics$Internal$Material$combine, m1.friction, m2.friction);
+	});
+var $w0rm$elm_physics$Internal$Equation$contactEquationsGroup = F2(
+	function (ctx, _v0) {
+		var body1 = _v0.body1;
+		var body2 = _v0.body2;
+		var contacts = _v0.contacts;
+		var maxFrictionForce = ((body1.invMass + body2.invMass) > 0) ? ((A2($w0rm$elm_physics$Internal$Material$contactFriction, body1.material, body2.material) * ctx.gravityLength) / (body1.invMass + body2.invMass)) : 0;
+		var bounciness = A2($w0rm$elm_physics$Internal$Material$contactBounciness, body1.material, body2.material);
+		return {
+			bodyId1: body1.id,
+			bodyId2: body2.id,
+			equations: A3(
+				$elm$core$List$foldl,
+				A5($w0rm$elm_physics$Internal$Equation$addContactEquations, ctx, maxFrictionForce, bounciness, body1, body2),
+				_List_Nil,
+				contacts)
+		};
+	});
+var $w0rm$elm_physics$Internal$SolverBody$fromBody = function (body) {
+	return {body: body, vX: 0, vY: 0, vZ: 0, wX: 0, wY: 0, wZ: 0};
+};
+var $elm$core$Array$repeat = F2(
+	function (n, e) {
+		return A2(
+			$elm$core$Array$initialize,
+			n,
+			function (_v0) {
+				return e;
+			});
+	});
+var $elm$core$Array$setHelp = F4(
+	function (shift, index, value, tree) {
+		var pos = $elm$core$Array$bitMask & (index >>> shift);
+		var _v0 = A2($elm$core$Elm$JsArray$unsafeGet, pos, tree);
+		if (_v0.$ === 'SubTree') {
+			var subTree = _v0.a;
+			var newSub = A4($elm$core$Array$setHelp, shift - $elm$core$Array$shiftStep, index, value, subTree);
+			return A3(
+				$elm$core$Elm$JsArray$unsafeSet,
+				pos,
+				$elm$core$Array$SubTree(newSub),
+				tree);
+		} else {
+			var values = _v0.a;
+			var newLeaf = A3($elm$core$Elm$JsArray$unsafeSet, $elm$core$Array$bitMask & index, value, values);
+			return A3(
+				$elm$core$Elm$JsArray$unsafeSet,
+				pos,
+				$elm$core$Array$Leaf(newLeaf),
+				tree);
+		}
+	});
+var $elm$core$Array$set = F3(
+	function (index, value, array) {
+		var len = array.a;
+		var startShift = array.b;
+		var tree = array.c;
+		var tail = array.d;
+		return ((index < 0) || (_Utils_cmp(index, len) > -1)) ? array : ((_Utils_cmp(
+			index,
+			$elm$core$Array$tailIndex(len)) > -1) ? A4(
+			$elm$core$Array$Array_elm_builtin,
+			len,
+			startShift,
+			tree,
+			A3($elm$core$Elm$JsArray$unsafeSet, $elm$core$Array$bitMask & index, value, tail)) : A4(
+			$elm$core$Array$Array_elm_builtin,
+			len,
+			startShift,
+			A4($elm$core$Array$setHelp, startShift, index, value, tree),
+			tail));
+	});
+var $w0rm$elm_physics$Internal$Solver$makeSolverBodies = F2(
+	function (nextBodyId, bodies) {
+		if (!bodies.b) {
+			return _Utils_Tuple2($elm$core$Array$empty, $elm$core$Maybe$Nothing);
+		} else {
+			var firstBody = bodies.a;
+			var fillingBody = $w0rm$elm_physics$Internal$SolverBody$fromBody(
+				_Utils_update(
+					firstBody,
+					{id: -1}));
+			var allBodies = A2($elm$core$Array$repeat, nextBodyId, fillingBody);
+			return _Utils_Tuple2(
+				A3(
+					$elm$core$List$foldl,
+					function (body) {
+						return A2(
+							$elm$core$Array$set,
+							body.id,
+							$w0rm$elm_physics$Internal$SolverBody$fromBody(body));
+					},
+					allBodies,
+					bodies),
+				$elm$core$Maybe$Just(fillingBody));
+		}
+	});
+var $w0rm$elm_physics$Internal$Solver$maxIterations = 20;
+var $w0rm$elm_physics$Internal$Solver$solveEquationsGroup = F5(
+	function (body1, body2, equations, deltalambdaTot, currentEquations) {
+		solveEquationsGroup:
+		while (true) {
+			if (!currentEquations.b) {
+				return {body1: body1, body2: body2, deltalambdaTot: deltalambdaTot, equations: equations};
+			} else {
+				var solverLambda = currentEquations.a.solverLambda;
+				var equation = currentEquations.a.equation;
+				var remainingEquations = currentEquations.b;
+				var invI2 = body2.body.invInertiaWorld;
+				var invI1 = body1.body.invInertiaWorld;
+				var _v1 = equation;
+				var wA = _v1.wA;
+				var vB = _v1.vB;
+				var wB = _v1.wB;
+				var minForce = _v1.minForce;
+				var maxForce = _v1.maxForce;
+				var solverB = _v1.solverB;
+				var spookEps = _v1.spookEps;
+				var solverInvC = _v1.solverInvC;
+				var gWlambda = (((-(((vB.x * body1.vX) + (vB.y * body1.vY)) + (vB.z * body1.vZ))) + (((wA.x * body1.wX) + (wA.y * body1.wY)) + (wA.z * body1.wZ))) + (((vB.x * body2.vX) + (vB.y * body2.vY)) + (vB.z * body2.vZ))) + (((wB.x * body2.wX) + (wB.y * body2.wY)) + (wB.z * body2.wZ));
+				var deltalambdaPrev = solverInvC * ((solverB - gWlambda) - (spookEps * solverLambda));
+				var deltalambda = (((solverLambda + deltalambdaPrev) - minForce) < 0) ? (minForce - solverLambda) : ((((solverLambda + deltalambdaPrev) - maxForce) > 0) ? (maxForce - solverLambda) : deltalambdaPrev);
+				var k1 = deltalambda * body1.body.invMass;
+				var k2 = deltalambda * body2.body.invMass;
+				var newBody1 = (body1.body.mass > 0) ? {body: body1.body, vX: body1.vX - (k1 * vB.x), vY: body1.vY - (k1 * vB.y), vZ: body1.vZ - (k1 * vB.z), wX: body1.wX + ((((invI1.m11 * wA.x) + (invI1.m12 * wA.y)) + (invI1.m13 * wA.z)) * deltalambda), wY: body1.wY + ((((invI1.m21 * wA.x) + (invI1.m22 * wA.y)) + (invI1.m23 * wA.z)) * deltalambda), wZ: body1.wZ + ((((invI1.m31 * wA.x) + (invI1.m32 * wA.y)) + (invI1.m33 * wA.z)) * deltalambda)} : body1;
+				var newBody2 = (body2.body.mass > 0) ? {body: body2.body, vX: body2.vX + (k2 * vB.x), vY: body2.vY + (k2 * vB.y), vZ: body2.vZ + (k2 * vB.z), wX: body2.wX + ((((invI2.m11 * wB.x) + (invI2.m12 * wB.y)) + (invI2.m13 * wB.z)) * deltalambda), wY: body2.wY + ((((invI2.m21 * wB.x) + (invI2.m22 * wB.y)) + (invI2.m23 * wB.z)) * deltalambda), wZ: body2.wZ + ((((invI2.m31 * wB.x) + (invI2.m32 * wB.y)) + (invI2.m33 * wB.z)) * deltalambda)} : body2;
+				var $temp$body1 = newBody1,
+					$temp$body2 = newBody2,
+					$temp$equations = A2(
+					$elm$core$List$cons,
+					{equation: equation, solverLambda: solverLambda + deltalambda},
+					equations),
+					$temp$deltalambdaTot = deltalambdaTot + $elm$core$Basics$abs(deltalambda),
+					$temp$currentEquations = remainingEquations;
+				body1 = $temp$body1;
+				body2 = $temp$body2;
+				equations = $temp$equations;
+				deltalambdaTot = $temp$deltalambdaTot;
+				currentEquations = $temp$currentEquations;
+				continue solveEquationsGroup;
+			}
+		}
+	});
+var $w0rm$elm_physics$Internal$Solver$step = F6(
+	function (number, deltalambdaTot, equationsGroups, currentEquationsGroups, prevBody1, solverBodies) {
+		step:
+		while (true) {
+			if (!currentEquationsGroups.b) {
+				if ((!number) || ((deltalambdaTot - $w0rm$elm_physics$Internal$Const$precision) < 0)) {
+					return A3($elm$core$Array$set, prevBody1.body.id, prevBody1, solverBodies);
+				} else {
+					var $temp$number = number - 1,
+						$temp$deltalambdaTot = 0,
+						$temp$equationsGroups = _List_Nil,
+						$temp$currentEquationsGroups = $elm$core$List$reverse(equationsGroups),
+						$temp$prevBody1 = prevBody1,
+						$temp$solverBodies = solverBodies;
+					number = $temp$number;
+					deltalambdaTot = $temp$deltalambdaTot;
+					equationsGroups = $temp$equationsGroups;
+					currentEquationsGroups = $temp$currentEquationsGroups;
+					prevBody1 = $temp$prevBody1;
+					solverBodies = $temp$solverBodies;
+					continue step;
+				}
+			} else {
+				var bodyId1 = currentEquationsGroups.a.bodyId1;
+				var bodyId2 = currentEquationsGroups.a.bodyId2;
+				var equations = currentEquationsGroups.a.equations;
+				var remainingEquationsGroups = currentEquationsGroups.b;
+				var newSolverBodies = ((!(bodyId1 - prevBody1.body.id)) || (!prevBody1.body.mass)) ? solverBodies : A3($elm$core$Array$set, prevBody1.body.id, prevBody1, solverBodies);
+				var maybeBody1 = (!(bodyId1 - prevBody1.body.id)) ? $elm$core$Maybe$Just(prevBody1) : A2($elm$core$Array$get, bodyId1, solverBodies);
+				if (maybeBody1.$ === 'Just') {
+					var body1 = maybeBody1.a;
+					var _v2 = A2($elm$core$Array$get, bodyId2, newSolverBodies);
+					if (_v2.$ === 'Just') {
+						var body2 = _v2.a;
+						var groupContext = A5($w0rm$elm_physics$Internal$Solver$solveEquationsGroup, body1, body2, _List_Nil, deltalambdaTot, equations);
+						var $temp$number = number,
+							$temp$deltalambdaTot = groupContext.deltalambdaTot,
+							$temp$equationsGroups = A2(
+							$elm$core$List$cons,
+							{bodyId1: bodyId1, bodyId2: bodyId2, equations: groupContext.equations},
+							equationsGroups),
+							$temp$currentEquationsGroups = remainingEquationsGroups,
+							$temp$prevBody1 = groupContext.body1,
+							$temp$solverBodies = (groupContext.body2.body.mass > 0) ? A3($elm$core$Array$set, bodyId2, groupContext.body2, newSolverBodies) : newSolverBodies;
+						number = $temp$number;
+						deltalambdaTot = $temp$deltalambdaTot;
+						equationsGroups = $temp$equationsGroups;
+						currentEquationsGroups = $temp$currentEquationsGroups;
+						prevBody1 = $temp$prevBody1;
+						solverBodies = $temp$solverBodies;
+						continue step;
+					} else {
+						var $temp$number = number,
+							$temp$deltalambdaTot = deltalambdaTot,
+							$temp$equationsGroups = equationsGroups,
+							$temp$currentEquationsGroups = remainingEquationsGroups,
+							$temp$prevBody1 = prevBody1,
+							$temp$solverBodies = newSolverBodies;
+						number = $temp$number;
+						deltalambdaTot = $temp$deltalambdaTot;
+						equationsGroups = $temp$equationsGroups;
+						currentEquationsGroups = $temp$currentEquationsGroups;
+						prevBody1 = $temp$prevBody1;
+						solverBodies = $temp$solverBodies;
+						continue step;
+					}
+				} else {
+					var $temp$number = number,
+						$temp$deltalambdaTot = deltalambdaTot,
+						$temp$equationsGroups = equationsGroups,
+						$temp$currentEquationsGroups = remainingEquationsGroups,
+						$temp$prevBody1 = prevBody1,
+						$temp$solverBodies = newSolverBodies;
+					number = $temp$number;
+					deltalambdaTot = $temp$deltalambdaTot;
+					equationsGroups = $temp$equationsGroups;
+					currentEquationsGroups = $temp$currentEquationsGroups;
+					prevBody1 = $temp$prevBody1;
+					solverBodies = $temp$solverBodies;
+					continue step;
+				}
+			}
+		}
+	});
+var $elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
+var $elm$core$Elm$JsArray$map = _JsArray_map;
+var $elm$core$Array$map = F2(
+	function (func, _v0) {
+		var len = _v0.a;
+		var startShift = _v0.b;
+		var tree = _v0.c;
+		var tail = _v0.d;
+		var helper = function (node) {
+			if (node.$ === 'SubTree') {
+				var subTree = node.a;
+				return $elm$core$Array$SubTree(
+					A2($elm$core$Elm$JsArray$map, helper, subTree));
+			} else {
+				var values = node.a;
+				return $elm$core$Array$Leaf(
+					A2($elm$core$Elm$JsArray$map, func, values));
+			}
+		};
+		return A4(
+			$elm$core$Array$Array_elm_builtin,
+			len,
+			startShift,
+			A2($elm$core$Elm$JsArray$map, helper, tree),
+			A2($elm$core$Elm$JsArray$map, func, tail));
+	});
+var $w0rm$elm_physics$Internal$Transform3d$invertedInertiaRotateIn = F2(
+	function (transform3d, inertia) {
+		var rotation = $w0rm$elm_physics$Internal$Transform3d$orientation(transform3d);
+		return A2(
+			$w0rm$elm_physics$Internal$Matrix3$mul,
+			$w0rm$elm_physics$Internal$Matrix3$transpose(rotation),
+			A2($w0rm$elm_physics$Internal$Matrix3$mul, inertia, rotation));
+	});
+var $w0rm$elm_physics$Internal$Transform3d$normalize = function (_v0) {
+	var localOrigin = _v0.a;
+	var _v1 = _v0.b;
+	var x = _v1.a;
+	var y = _v1.b;
+	var z = _v1.c;
+	var w = _v1.d;
+	var len = $elm$core$Basics$sqrt((((x * x) + (y * y)) + (z * z)) + (w * w));
+	return A2(
+		$w0rm$elm_physics$Internal$Transform3d$Transform3d,
+		localOrigin,
+		A4($w0rm$elm_physics$Internal$Transform3d$Orientation3d, x / len, y / len, z / len, w / len));
+};
+var $elm$core$Basics$pow = _Basics_pow;
+var $w0rm$elm_physics$Internal$Transform3d$rotateBy = F2(
+	function (_v0, _v1) {
+		var x = _v0.x;
+		var y = _v0.y;
+		var z = _v0.z;
+		var localOrigin = _v1.a;
+		var _v2 = _v1.b;
+		var qx = _v2.a;
+		var qy = _v2.b;
+		var qz = _v2.c;
+		var qw = _v2.d;
+		return A2(
+			$w0rm$elm_physics$Internal$Transform3d$Transform3d,
+			localOrigin,
+			A4($w0rm$elm_physics$Internal$Transform3d$Orientation3d, qx + ((((x * qw) + (y * qz)) - (z * qy)) * 0.5), qy + ((((y * qw) + (z * qx)) - (x * qz)) * 0.5), qz + ((((z * qw) + (x * qy)) - (y * qx)) * 0.5), qw + (((((-x) * qx) - (y * qy)) - (z * qz)) * 0.5)));
+	});
+var $w0rm$elm_physics$Internal$Transform3d$translateBy = F2(
+	function (vector, _v0) {
+		var localOrigin = _v0.a;
+		var localOrientation = _v0.b;
+		return A2(
+			$w0rm$elm_physics$Internal$Transform3d$Transform3d,
+			A2($w0rm$elm_physics$Internal$Vector3$add, vector, localOrigin),
+			localOrientation);
+	});
+var $w0rm$elm_physics$Internal$SolverBody$toBody = F2(
+	function (_v0, _v1) {
+		var dt = _v0.dt;
+		var gravity = _v0.gravity;
+		var body = _v1.body;
+		var vX = _v1.vX;
+		var vY = _v1.vY;
+		var vZ = _v1.vZ;
+		var wX = _v1.wX;
+		var wY = _v1.wY;
+		var wZ = _v1.wZ;
+		var ld = A2($elm$core$Basics$pow, 1.0 - body.linearDamping, dt);
+		var newVelocity = {x: (((gravity.x + (body.force.x * body.invMass)) * dt) + (body.velocity.x * ld)) + vX, y: (((gravity.y + (body.force.y * body.invMass)) * dt) + (body.velocity.y * ld)) + vY, z: (((gravity.z + (body.force.z * body.invMass)) * dt) + (body.velocity.z * ld)) + vZ};
+		var velocityLength = $w0rm$elm_physics$Internal$Vector3$length(newVelocity);
+		var cappedVelocity = ((!velocityLength) || ((!body.boundingSphereRadius) || (((velocityLength * dt) - body.boundingSphereRadius) < 0))) ? newVelocity : A2($w0rm$elm_physics$Internal$Vector3$scale, body.boundingSphereRadius / (velocityLength * dt), newVelocity);
+		var ad = A2($elm$core$Basics$pow, 1.0 - body.angularDamping, dt);
+		var newAngularVelocity = {x: (((((body.invInertiaWorld.m11 * body.torque.x) + (body.invInertiaWorld.m12 * body.torque.y)) + (body.invInertiaWorld.m13 * body.torque.z)) * dt) + (body.angularVelocity.x * ad)) + wX, y: (((((body.invInertiaWorld.m21 * body.torque.x) + (body.invInertiaWorld.m22 * body.torque.y)) + (body.invInertiaWorld.m23 * body.torque.z)) * dt) + (body.angularVelocity.y * ad)) + wY, z: (((((body.invInertiaWorld.m31 * body.torque.x) + (body.invInertiaWorld.m32 * body.torque.y)) + (body.invInertiaWorld.m33 * body.torque.z)) * dt) + (body.angularVelocity.z * ad)) + wZ};
+		var newTransform3d = $w0rm$elm_physics$Internal$Transform3d$normalize(
+			A2(
+				$w0rm$elm_physics$Internal$Transform3d$translateBy,
+				{x: cappedVelocity.x * dt, y: cappedVelocity.y * dt, z: cappedVelocity.z * dt},
+				A2(
+					$w0rm$elm_physics$Internal$Transform3d$rotateBy,
+					{x: newAngularVelocity.x * dt, y: newAngularVelocity.y * dt, z: newAngularVelocity.z * dt},
+					body.transform3d)));
+		return {
+			angularDamping: body.angularDamping,
+			angularVelocity: newAngularVelocity,
+			boundingSphereRadius: body.boundingSphereRadius,
+			centerOfMassTransform3d: body.centerOfMassTransform3d,
+			data: body.data,
+			force: $w0rm$elm_physics$Internal$Vector3$zero,
+			id: body.id,
+			invInertia: body.invInertia,
+			invInertiaWorld: A2($w0rm$elm_physics$Internal$Transform3d$invertedInertiaRotateIn, newTransform3d, body.invInertia),
+			invMass: body.invMass,
+			linearDamping: body.linearDamping,
+			mass: body.mass,
+			material: body.material,
+			shapes: body.shapes,
+			torque: $w0rm$elm_physics$Internal$Vector3$zero,
+			transform3d: newTransform3d,
+			velocity: newVelocity,
+			worldShapes: A2($w0rm$elm_physics$Internal$Shape$shapesPlaceIn, newTransform3d, body.shapes)
+		};
+	});
+var $w0rm$elm_physics$Internal$Solver$updateBodies = F3(
+	function (ctx, bodies, world) {
+		var simulatedBodies = A2(
+			$elm$core$Array$map,
+			function (solverBody) {
+				return ((solverBody.body.id + 1) > 0) ? ((solverBody.body.mass > 0) ? A2($w0rm$elm_physics$Internal$SolverBody$toBody, ctx, solverBody) : solverBody.body) : solverBody.body;
+			},
+			bodies);
+		return _Utils_update(
+			world,
+			{
+				bodies: A2(
+					$elm$core$List$filter,
+					function (_v0) {
+						var id = _v0.id;
+						return (id + 1) > 0;
+					},
+					$elm$core$Array$toList(simulatedBodies)),
+				simulatedBodies: simulatedBodies
+			});
+	});
+var $w0rm$elm_physics$Internal$Solver$solve = F2(
+	function (dt, world) {
+		var ctx = {
+			dt: dt,
+			gravity: world.gravity,
+			gravityLength: $w0rm$elm_physics$Internal$Vector3$length(world.gravity)
+		};
+		var contactEquationsGroups = A3(
+			$elm$core$List$foldl,
+			F2(
+				function (contactGroup, groups) {
+					return A2(
+						$elm$core$List$cons,
+						A2($w0rm$elm_physics$Internal$Equation$contactEquationsGroup, ctx, contactGroup),
+						groups);
+				}),
+			_List_Nil,
+			world.contactGroups);
+		var _v0 = A2($w0rm$elm_physics$Internal$Solver$makeSolverBodies, world.nextBodyId, world.bodies);
+		var solverBodies = _v0.a;
+		var maybeFillingBody = _v0.b;
+		var equationsGroups = A3(
+			$elm$core$List$foldl,
+			F2(
+				function (_v2, groups) {
+					var bodyId1 = _v2.bodyId1;
+					var bodyId2 = _v2.bodyId2;
+					var constraints = _v2.constraints;
+					var _v3 = A2($elm$core$Array$get, bodyId1, solverBodies);
+					if (_v3.$ === 'Nothing') {
+						return groups;
+					} else {
+						var body1 = _v3.a;
+						var _v4 = A2($elm$core$Array$get, bodyId2, solverBodies);
+						if (_v4.$ === 'Nothing') {
+							return groups;
+						} else {
+							var body2 = _v4.a;
+							return A2(
+								$elm$core$List$cons,
+								A4($w0rm$elm_physics$Internal$Equation$constraintEquationsGroup, ctx, body1.body, body2.body, constraints),
+								groups);
+						}
+					}
+				}),
+			contactEquationsGroups,
+			world.constraints);
+		var solvedBodies = function () {
+			if (maybeFillingBody.$ === 'Just') {
+				var fillingBody = maybeFillingBody.a;
+				return A6($w0rm$elm_physics$Internal$Solver$step, $w0rm$elm_physics$Internal$Solver$maxIterations, 0, _List_Nil, equationsGroups, fillingBody, solverBodies);
+			} else {
+				return solverBodies;
+			}
+		}();
+		return A3($w0rm$elm_physics$Internal$Solver$updateBodies, ctx, solvedBodies, world);
+	});
+var $w0rm$elm_physics$Physics$World$simulate = F2(
+	function (dt, _v0) {
+		var world = _v0.a;
+		return $w0rm$elm_physics$Internal$World$Protected(
+			A2(
+				$w0rm$elm_physics$Internal$Solver$solve,
+				$ianmackenzie$elm_units$Duration$inSeconds(dt),
+				$w0rm$elm_physics$Internal$BroadPhase$addContacts(world)));
+	});
+var $w0rm$elm_physics$Internal$Transform3d$identity = A4($w0rm$elm_physics$Internal$Transform3d$Orientation3d, 0, 0, 0, 1);
+var $w0rm$elm_physics$Internal$Transform3d$atOrigin = A2($w0rm$elm_physics$Internal$Transform3d$Transform3d, $w0rm$elm_physics$Internal$Vector3$zero, $w0rm$elm_physics$Internal$Transform3d$identity);
+var $w0rm$elm_physics$Internal$Transform3d$atPoint = function (point) {
+	return A2($w0rm$elm_physics$Internal$Transform3d$Transform3d, point, $w0rm$elm_physics$Internal$Transform3d$identity);
+};
+var $w0rm$elm_physics$Internal$Shape$volume = function (shape) {
+	switch (shape.$) {
+		case 'Sphere':
+			var sphere = shape.a;
+			return sphere.volume;
+		case 'Convex':
+			var convex = shape.a;
+			return convex.volume;
+		case 'Plane':
+			return 0;
+		default:
+			return 0;
+	}
+};
+var $w0rm$elm_physics$Internal$Body$centerOfMass = function (shapes) {
+	var totalVolume = A3(
+		$elm$core$List$foldl,
+		F2(
+			function (shape, sum) {
+				return sum + $w0rm$elm_physics$Internal$Shape$volume(shape);
+			}),
+		0,
+		shapes);
+	return (totalVolume > 0) ? A3(
+		$elm$core$List$foldl,
+		function (shape) {
+			return $w0rm$elm_physics$Internal$Vector3$add(
+				A2(
+					$w0rm$elm_physics$Internal$Vector3$scale,
+					$w0rm$elm_physics$Internal$Shape$volume(shape) / totalVolume,
+					function () {
+						switch (shape.$) {
+							case 'Convex':
+								var position = shape.a.position;
+								return position;
+							case 'Particle':
+								var position = shape.a;
+								return position;
+							case 'Sphere':
+								var position = shape.a.position;
+								return position;
+							default:
+								var position = shape.a.position;
+								return position;
+						}
+					}()));
+		},
+		$w0rm$elm_physics$Internal$Vector3$zero,
+		shapes) : $w0rm$elm_physics$Internal$Vector3$zero;
+};
+var $w0rm$elm_physics$Internal$Material$default = {bounciness: 0, friction: 0.3};
+var $w0rm$elm_physics$Shapes$Convex$expandBoundingSphereRadius = F2(
+	function (_v0, boundingSphereRadius) {
+		var vertices = _v0.vertices;
+		return $elm$core$Basics$sqrt(
+			A3(
+				$elm$core$List$foldl,
+				function (vertex) {
+					return $elm$core$Basics$max(
+						$w0rm$elm_physics$Internal$Vector3$lengthSquared(vertex));
+				},
+				boundingSphereRadius * boundingSphereRadius,
+				vertices));
+	});
+var $w0rm$elm_physics$Shapes$Sphere$expandBoundingSphereRadius = F2(
+	function (_v0, boundingSphereRadius) {
+		var radius = _v0.radius;
+		var position = _v0.position;
+		return A2(
+			$elm$core$Basics$max,
+			$w0rm$elm_physics$Internal$Vector3$length(position) + radius,
+			boundingSphereRadius);
+	});
+var $w0rm$elm_physics$Internal$Shape$expandBoundingSphereRadius = F2(
+	function (shape, boundingSphereRadius) {
+		switch (shape.$) {
+			case 'Convex':
+				var convex = shape.a;
+				return A2($w0rm$elm_physics$Shapes$Convex$expandBoundingSphereRadius, convex, boundingSphereRadius);
+			case 'Sphere':
+				var sphere = shape.a;
+				return A2($w0rm$elm_physics$Shapes$Sphere$expandBoundingSphereRadius, sphere, boundingSphereRadius);
+			case 'Plane':
+				return $w0rm$elm_physics$Internal$Const$maxNumber;
+			default:
+				var position = shape.a;
+				return A2(
+					$elm$core$Basics$max,
+					boundingSphereRadius,
+					$w0rm$elm_physics$Internal$Vector3$length(position));
+		}
+	});
+var $w0rm$elm_physics$Internal$Matrix3$add = F2(
+	function (a, b) {
+		return {m11: a.m11 + b.m11, m12: a.m12 + b.m12, m13: a.m13 + b.m13, m21: a.m21 + b.m21, m22: a.m22 + b.m22, m23: a.m23 + b.m23, m31: a.m31 + b.m31, m32: a.m32 + b.m32, m33: a.m33 + b.m33};
+	});
+var $w0rm$elm_physics$Internal$Shape$centerOfMass = function (shape) {
+	switch (shape.$) {
+		case 'Sphere':
+			var sphere = shape.a;
+			return sphere.position;
+		case 'Convex':
+			var convex = shape.a;
+			return convex.position;
+		case 'Plane':
+			return $w0rm$elm_physics$Internal$Vector3$zero;
+		default:
+			return $w0rm$elm_physics$Internal$Vector3$zero;
+	}
+};
+var $w0rm$elm_physics$Internal$Matrix3$zero = {m11: 0, m12: 0, m13: 0, m21: 0, m22: 0, m23: 0, m31: 0, m32: 0, m33: 0};
+var $w0rm$elm_physics$Internal$Shape$inertia = function (shape) {
+	switch (shape.$) {
+		case 'Sphere':
+			var sphere = shape.a;
+			return sphere.inertia;
+		case 'Convex':
+			var convex = shape.a;
+			return convex.inertia;
+		case 'Plane':
+			return $w0rm$elm_physics$Internal$Matrix3$zero;
+		default:
+			return $w0rm$elm_physics$Internal$Matrix3$zero;
+	}
+};
+var $w0rm$elm_physics$Internal$Matrix3$pointInertia = F4(
+	function (m, x, y, z) {
+		var m32 = ((-m) * y) * z;
+		var m31 = ((-m) * x) * z;
+		var m21 = ((-m) * x) * y;
+		return {m11: m * ((y * y) + (z * z)), m12: m21, m13: m31, m21: m21, m22: m * ((z * z) + (x * x)), m23: m32, m31: m31, m32: m32, m33: m * ((x * x) + (y * y))};
+	});
+var $w0rm$elm_physics$Internal$Transform3d$inertiaPlaceIn = F4(
+	function (transform3d, centerOfMass, mass, inertia) {
+		var x = transform3d.a.x;
+		var y = transform3d.a.y;
+		var z = transform3d.a.z;
+		var rotatedInertia = A2($w0rm$elm_physics$Internal$Transform3d$inertiaRotateIn, transform3d, inertia);
+		var inertiaOffset = A4($w0rm$elm_physics$Internal$Matrix3$pointInertia, mass, x - centerOfMass.x, y - centerOfMass.y, z - centerOfMass.z);
+		return A2($w0rm$elm_physics$Internal$Matrix3$add, rotatedInertia, inertiaOffset);
+	});
+var $w0rm$elm_physics$Internal$Matrix3$inverse = function (_v0) {
+	var m11 = _v0.m11;
+	var m21 = _v0.m21;
+	var m31 = _v0.m31;
+	var m12 = _v0.m12;
+	var m22 = _v0.m22;
+	var m32 = _v0.m32;
+	var m13 = _v0.m13;
+	var m23 = _v0.m23;
+	var m33 = _v0.m33;
+	var det = ((m11 * ((m22 * m33) - (m32 * m23))) - (m12 * ((m21 * m33) - (m23 * m31)))) + (m13 * ((m21 * m32) - (m22 * m31)));
+	var invdet = 1 / det;
+	return (!det) ? $w0rm$elm_physics$Internal$Matrix3$zero : {m11: ((m22 * m33) - (m32 * m23)) * invdet, m12: ((m13 * m32) - (m12 * m33)) * invdet, m13: ((m12 * m23) - (m13 * m22)) * invdet, m21: ((m23 * m31) - (m21 * m33)) * invdet, m22: ((m11 * m33) - (m13 * m31)) * invdet, m23: ((m21 * m13) - (m11 * m23)) * invdet, m31: ((m21 * m32) - (m31 * m22)) * invdet, m32: ((m31 * m12) - (m11 * m32)) * invdet, m33: ((m11 * m22) - (m21 * m12)) * invdet};
+};
+var $w0rm$elm_physics$Internal$Matrix3$scale = F2(
+	function (k, m) {
+		return {m11: k * m.m11, m12: k * m.m12, m13: k * m.m13, m21: k * m.m21, m22: k * m.m22, m23: k * m.m23, m31: k * m.m31, m32: k * m.m32, m33: k * m.m33};
+	});
+var $w0rm$elm_physics$Internal$Body$updateMassProperties = function (body) {
+	var mass = body.mass;
+	var shapes = body.shapes;
+	var totalVolume = A3(
+		$elm$core$List$foldl,
+		F2(
+			function (shape, result) {
+				return $w0rm$elm_physics$Internal$Shape$volume(shape) + result;
+			}),
+		0,
+		shapes);
+	var invMass = (!mass) ? 0 : (1 / mass);
+	var density = mass / totalVolume;
+	var inertia = A2(
+		$w0rm$elm_physics$Internal$Matrix3$scale,
+		density,
+		A3(
+			$elm$core$List$foldl,
+			function (shape) {
+				var shapeVolume = $w0rm$elm_physics$Internal$Shape$volume(shape);
+				var shapeInertia = $w0rm$elm_physics$Internal$Shape$inertia(shape);
+				var shapeCenterOfMass = $w0rm$elm_physics$Internal$Shape$centerOfMass(shape);
+				var resultInertia = A4(
+					$w0rm$elm_physics$Internal$Transform3d$inertiaPlaceIn,
+					body.centerOfMassTransform3d,
+					A2($w0rm$elm_physics$Internal$Transform3d$pointPlaceIn, body.centerOfMassTransform3d, shapeCenterOfMass),
+					shapeVolume,
+					shapeInertia);
+				return $w0rm$elm_physics$Internal$Matrix3$add(resultInertia);
+			},
+			$w0rm$elm_physics$Internal$Matrix3$zero,
+			shapes));
+	var invInertia = $w0rm$elm_physics$Internal$Matrix3$inverse(inertia);
+	return _Utils_update(
+		body,
+		{
+			invInertia: invInertia,
+			invInertiaWorld: A2($w0rm$elm_physics$Internal$Transform3d$invertedInertiaRotateIn, body.transform3d, invInertia),
+			invMass: invMass
+		});
+};
+var $w0rm$elm_physics$Internal$Body$compound = F2(
+	function (shapes, data) {
+		var centerOfMassPoint = $w0rm$elm_physics$Internal$Body$centerOfMass(shapes);
+		var centerOfMassTransform3d = $w0rm$elm_physics$Internal$Transform3d$atPoint(centerOfMassPoint);
+		var inverseCenterOfMassTransform3d = $w0rm$elm_physics$Internal$Transform3d$inverse(centerOfMassTransform3d);
+		var movedShapes = A2($w0rm$elm_physics$Internal$Shape$shapesPlaceIn, inverseCenterOfMassTransform3d, shapes);
+		var bodyTransform3d = $w0rm$elm_physics$Internal$Transform3d$atOrigin;
+		var transform3d = A2($w0rm$elm_physics$Internal$Transform3d$placeIn, bodyTransform3d, centerOfMassTransform3d);
+		var shapeTransform = A2($w0rm$elm_physics$Internal$Transform3d$placeIn, transform3d, inverseCenterOfMassTransform3d);
+		return $w0rm$elm_physics$Internal$Body$updateMassProperties(
+			{
+				angularDamping: 0.01,
+				angularVelocity: $w0rm$elm_physics$Internal$Vector3$zero,
+				boundingSphereRadius: A3($elm$core$List$foldl, $w0rm$elm_physics$Internal$Shape$expandBoundingSphereRadius, 0, movedShapes),
+				centerOfMassTransform3d: centerOfMassTransform3d,
+				data: data,
+				force: $w0rm$elm_physics$Internal$Vector3$zero,
+				id: -1,
+				invInertia: $w0rm$elm_physics$Internal$Matrix3$zero,
+				invInertiaWorld: $w0rm$elm_physics$Internal$Matrix3$zero,
+				invMass: 0,
+				linearDamping: 0.01,
+				mass: 0,
+				material: $w0rm$elm_physics$Internal$Material$default,
+				shapes: movedShapes,
+				torque: $w0rm$elm_physics$Internal$Vector3$zero,
+				transform3d: transform3d,
+				velocity: $w0rm$elm_physics$Internal$Vector3$zero,
+				worldShapes: A2($w0rm$elm_physics$Internal$Shape$shapesPlaceIn, shapeTransform, shapes)
+			});
+	});
+var $w0rm$elm_physics$Physics$Body$compound = F2(
+	function (shapes, newData) {
+		var unprotectedShapes = A3(
+			$elm$core$List$foldl,
+			F2(
+				function (_v0, result) {
+					var shape = _v0.a;
+					return A2($elm$core$List$cons, shape, result);
+				}),
+			_List_Nil,
+			shapes);
+		return $w0rm$elm_physics$Internal$Body$Protected(
+			A2($w0rm$elm_physics$Internal$Body$compound, unprotectedShapes, newData));
+	});
+var $w0rm$elm_physics$Internal$Shape$Protected = function (a) {
+	return {$: 'Protected', a: a};
+};
+var $w0rm$elm_physics$Internal$Matrix3$sphereInertia = F2(
+	function (m, radius) {
+		var i = (((m * 2) / 5) * radius) * radius;
+		return {m11: i, m12: 0, m13: 0, m21: 0, m22: i, m23: 0, m31: 0, m32: 0, m33: i};
+	});
+var $w0rm$elm_physics$Shapes$Sphere$atOrigin = function (radius) {
+	var volume = ((4 / 3) * $elm$core$Basics$pi) * A2($elm$core$Basics$pow, radius, 3);
+	return {
+		inertia: A2($w0rm$elm_physics$Internal$Matrix3$sphereInertia, volume, radius),
+		position: $w0rm$elm_physics$Internal$Vector3$zero,
+		radius: radius,
+		volume: volume
+	};
+};
+var $ianmackenzie$elm_geometry$Sphere3d$centerPoint = function (_v0) {
+	var properties = _v0.a;
+	return properties.centerPoint;
+};
+var $ianmackenzie$elm_units$Length$inMeters = function (_v0) {
+	var numMeters = _v0.a;
+	return numMeters;
+};
+var $ianmackenzie$elm_geometry$Sphere3d$radius = function (_v0) {
+	var properties = _v0.a;
+	return properties.radius;
+};
+var $w0rm$elm_physics$Physics$Shape$sphere = function (sphere3d) {
+	var radius = $ianmackenzie$elm_units$Length$inMeters(
+		$ianmackenzie$elm_geometry$Sphere3d$radius(sphere3d));
+	var origin = $ianmackenzie$elm_geometry$Point3d$toMeters(
+		$ianmackenzie$elm_geometry$Sphere3d$centerPoint(sphere3d));
+	return $w0rm$elm_physics$Internal$Shape$Protected(
+		$w0rm$elm_physics$Internal$Shape$Sphere(
+			A2(
+				$w0rm$elm_physics$Shapes$Sphere$placeIn,
+				$w0rm$elm_physics$Internal$Transform3d$atPoint(origin),
+				$w0rm$elm_physics$Shapes$Sphere$atOrigin(radius))));
+};
+var $w0rm$elm_physics$Physics$Body$sphere = function (sphere3d) {
+	return $w0rm$elm_physics$Physics$Body$compound(
+		_List_fromArray(
+			[
+				$w0rm$elm_physics$Physics$Shape$sphere(sphere3d)
+			]));
+};
+var $ianmackenzie$elm_units$Quantity$times = F2(
+	function (_v0, _v1) {
+		var y = _v0.a;
+		var x = _v1.a;
+		return $ianmackenzie$elm_units$Quantity$Quantity(x * y);
+	});
 var $ianmackenzie$elm_geometry$Point3d$translateIn = F3(
 	function (_v0, _v1, _v2) {
 		var d = _v0.a;
@@ -12982,24 +15957,64 @@ var $ianmackenzie$elm_geometry$Point3d$translateIn = F3(
 		return $ianmackenzie$elm_geometry$Geometry$Types$Point3d(
 			{x: p.x + (distance * d.x), y: p.y + (distance * d.y), z: p.z + (distance * d.z)});
 	});
+var $w0rm$elm_physics$Physics$Body$withBehavior = F2(
+	function (behavior, _v0) {
+		var body = _v0.a;
+		if (behavior.$ === 'Dynamic') {
+			var mass_ = behavior.a;
+			var _v2 = body.shapes;
+			if (!_v2.b) {
+				return $w0rm$elm_physics$Internal$Body$Protected(body);
+			} else {
+				if (!_v2.b.b) {
+					var shape = _v2.a;
+					if (shape.$ === 'Plane') {
+						return $w0rm$elm_physics$Internal$Body$Protected(body);
+					} else {
+						return $w0rm$elm_physics$Internal$Body$Protected(
+							$w0rm$elm_physics$Internal$Body$updateMassProperties(
+								_Utils_update(
+									body,
+									{mass: mass_})));
+					}
+				} else {
+					return $w0rm$elm_physics$Internal$Body$Protected(
+						$w0rm$elm_physics$Internal$Body$updateMassProperties(
+							_Utils_update(
+								body,
+								{mass: mass_})));
+				}
+			}
+		} else {
+			return $w0rm$elm_physics$Internal$Body$Protected(
+				$w0rm$elm_physics$Internal$Body$updateMassProperties(
+					_Utils_update(
+						body,
+						{mass: 0})));
+		}
+	});
+var $ianmackenzie$elm_geometry$Direction3d$x = $ianmackenzie$elm_geometry$Direction3d$positiveX;
 var $ianmackenzie$elm_geometry$Direction3d$positiveY = $ianmackenzie$elm_geometry$Direction3d$unsafe(
 	{x: 0, y: 1, z: 0});
 var $ianmackenzie$elm_geometry$Direction3d$y = $ianmackenzie$elm_geometry$Direction3d$positiveY;
 var $ianmackenzie$elm_geometry$Axis3d$y = A2($ianmackenzie$elm_geometry$Axis3d$through, $ianmackenzie$elm_geometry$Point3d$origin, $ianmackenzie$elm_geometry$Direction3d$y);
+var $ianmackenzie$elm_geometry$Point3d$zCoordinate = function (_v0) {
+	var p = _v0.a;
+	return $ianmackenzie$elm_units$Quantity$Quantity(p.z);
+};
 var $author$project$Main$applyTick = function (model) {
 	applyTick:
 	while (true) {
 		if (_Utils_cmp(model.tickTime, $author$project$Main$framerate) > -1) {
 			var remainingTickTime = model.tickTime - $author$project$Main$framerate;
-			var cannonBalls = function (otherCannonBalls) {
-				var _v20 = model.fireCannon;
-				if (_v20.$ === 'Pressed') {
-					return function (position) {
-						return A2(
-							$elm$core$List$cons,
-							{
-								position: position,
-								velocity: A3(
+			var _v0 = function () {
+				var _v1 = model.fireCannon;
+				if (_v1.$ === 'Pressed') {
+					return ((model.elapsedTime - model.lastCannonFiredAt) > 1000) ? _Utils_Tuple2(
+						A2(
+							$w0rm$elm_physics$Physics$World$add,
+							function () {
+								var velocity = A3(
 									$ianmackenzie$elm_geometry$Vector3d$rotateAround,
 									$ianmackenzie$elm_geometry$Axis3d$z,
 									A2($ianmackenzie$elm_units$Quantity$plus, model.tank.forward, model.tank.cannonRotation),
@@ -13007,60 +16022,128 @@ var $author$project$Main$applyTick = function (model) {
 										$ianmackenzie$elm_geometry$Vector3d$rotateAround,
 										$ianmackenzie$elm_geometry$Axis3d$y,
 										model.tank.cannonPitch,
-										A3($ianmackenzie$elm_geometry$Vector3d$meters, 0.1, 0, 0)))
-							},
-							otherCannonBalls);
-					}(
-						A3(
-							$ianmackenzie$elm_geometry$Point3d$translateIn,
-							$ianmackenzie$elm_geometry$Direction3d$positiveZ,
-							$ianmackenzie$elm_units$Length$meters(0.5),
-							A2(
-								$ianmackenzie$elm_geometry$Point3d$translateBy,
-								A2($ianmackenzie$elm_geometry$Vector3d$from, $ianmackenzie$elm_geometry$Point3d$origin, model.tank.position),
-								A3(
-									$ianmackenzie$elm_geometry$Point3d$rotateAround,
-									$ianmackenzie$elm_geometry$Axis3d$z,
-									A2($ianmackenzie$elm_units$Quantity$plus, model.tank.forward, model.tank.cannonRotation),
-									A3(
-										$ianmackenzie$elm_geometry$Point3d$rotateAround,
-										$ianmackenzie$elm_geometry$Axis3d$y,
-										model.tank.cannonPitch,
+										A3($ianmackenzie$elm_geometry$Vector3d$meters, 0.1, 0, 0)));
+								var position = A3(
+									$ianmackenzie$elm_geometry$Point3d$translateIn,
+									$ianmackenzie$elm_geometry$Direction3d$positiveZ,
+									$ianmackenzie$elm_units$Length$meters(0.5),
+									A2(
+										$ianmackenzie$elm_geometry$Point3d$translateBy,
+										A2($ianmackenzie$elm_geometry$Vector3d$from, $ianmackenzie$elm_geometry$Point3d$origin, model.tank.position),
 										A3(
-											$ianmackenzie$elm_geometry$Point3d$translateIn,
-											$ianmackenzie$elm_geometry$Direction3d$positiveX,
-											$ianmackenzie$elm_units$Length$meters(1.5),
-											$ianmackenzie$elm_geometry$Point3d$origin))))));
+											$ianmackenzie$elm_geometry$Point3d$rotateAround,
+											$ianmackenzie$elm_geometry$Axis3d$z,
+											A2($ianmackenzie$elm_units$Quantity$plus, model.tank.forward, model.tank.cannonRotation),
+											A3(
+												$ianmackenzie$elm_geometry$Point3d$rotateAround,
+												$ianmackenzie$elm_geometry$Axis3d$y,
+												model.tank.cannonPitch,
+												A3(
+													$ianmackenzie$elm_geometry$Point3d$translateIn,
+													$ianmackenzie$elm_geometry$Direction3d$positiveX,
+													$ianmackenzie$elm_units$Length$meters(1.5),
+													$ianmackenzie$elm_geometry$Point3d$origin)))));
+								return A4(
+									$w0rm$elm_physics$Physics$Body$applyImpulse,
+									A2(
+										$ianmackenzie$elm_units$Quantity$times,
+										$ianmackenzie$elm_units$Duration$seconds(0.5),
+										$ianmackenzie$elm_units$Force$newtons(500)),
+									A2(
+										$elm$core$Maybe$withDefault,
+										$ianmackenzie$elm_geometry$Direction3d$x,
+										$ianmackenzie$elm_geometry$Vector3d$direction(
+											A3(
+												$ianmackenzie$elm_geometry$Vector3d$rotateAround,
+												$ianmackenzie$elm_geometry$Axis3d$z,
+												A2($ianmackenzie$elm_units$Quantity$plus, model.tank.forward, model.tank.cannonRotation),
+												A3(
+													$ianmackenzie$elm_geometry$Vector3d$rotateAround,
+													$ianmackenzie$elm_geometry$Axis3d$y,
+													model.tank.cannonPitch,
+													A3($ianmackenzie$elm_geometry$Vector3d$meters, 0.1, 0, 0))))),
+									A3(
+										$ianmackenzie$elm_geometry$Point3d$translateIn,
+										$ianmackenzie$elm_geometry$Direction3d$positiveZ,
+										$ianmackenzie$elm_units$Length$meters(0.5),
+										A2(
+											$ianmackenzie$elm_geometry$Point3d$translateBy,
+											A2($ianmackenzie$elm_geometry$Vector3d$from, $ianmackenzie$elm_geometry$Point3d$origin, model.tank.position),
+											A3(
+												$ianmackenzie$elm_geometry$Point3d$rotateAround,
+												$ianmackenzie$elm_geometry$Axis3d$z,
+												A2($ianmackenzie$elm_units$Quantity$plus, model.tank.forward, model.tank.cannonRotation),
+												A3(
+													$ianmackenzie$elm_geometry$Point3d$rotateAround,
+													$ianmackenzie$elm_geometry$Axis3d$y,
+													model.tank.cannonPitch,
+													A3(
+														$ianmackenzie$elm_geometry$Point3d$translateIn,
+														$ianmackenzie$elm_geometry$Direction3d$positiveX,
+														$ianmackenzie$elm_units$Length$meters(1.5),
+														$ianmackenzie$elm_geometry$Point3d$origin))))),
+									A2(
+										$w0rm$elm_physics$Physics$Body$withBehavior,
+										$w0rm$elm_physics$Physics$Body$dynamic(
+											$ianmackenzie$elm_units$Mass$kilograms(5.5)),
+										A2(
+											$w0rm$elm_physics$Physics$Body$moveTo,
+											position,
+											A2(
+												$w0rm$elm_physics$Physics$Body$sphere,
+												A2(
+													$ianmackenzie$elm_geometry$Sphere3d$atPoint,
+													$ianmackenzie$elm_geometry$Point3d$origin,
+													$ianmackenzie$elm_units$Length$meters(0.25)),
+												{position: position, velocity: velocity}))));
+							}(),
+							model.physicsWorld),
+						model.elapsedTime) : _Utils_Tuple2(model.physicsWorld, model.lastCannonFiredAt);
 				} else {
-					return otherCannonBalls;
+					return _Utils_Tuple2(model.physicsWorld, model.lastCannonFiredAt);
 				}
-			};
+			}();
+			var cannonBallMaybeAdded = _v0.a;
+			var newLastCannonBallFireTime = _v0.b;
 			var nextModel = _Utils_update(
 				model,
 				{
-					cannonBalls: cannonBalls(
-						A2($elm$core$List$map, $author$project$Main$moveCannonBall, model.cannonBalls)),
+					lastCannonFiredAt: newLastCannonBallFireTime,
+					physicsWorld: A2(
+						$w0rm$elm_physics$Physics$World$keepIf,
+						function (body) {
+							return A2(
+								$ianmackenzie$elm_units$Quantity$greaterThan,
+								$ianmackenzie$elm_units$Length$meters(0),
+								$ianmackenzie$elm_geometry$Point3d$zCoordinate(
+									$ianmackenzie$elm_geometry$Frame3d$originPoint(
+										$w0rm$elm_physics$Physics$Body$frame(body))));
+						},
+						A2(
+							$w0rm$elm_physics$Physics$World$simulate,
+							$ianmackenzie$elm_units$Duration$seconds(1 / 60),
+							cannonBallMaybeAdded)),
 					tank: A2(
 						$author$project$Main$aimCannon,
 						function () {
-							var _v15 = _Utils_Tuple2(model.aimCannonUp, model.aimCannonDown);
-							_v15$2:
+							var _v17 = _Utils_Tuple2(model.aimCannonUp, model.aimCannonDown);
+							_v17$2:
 							while (true) {
-								if (_v15.a.$ === 'Pressed') {
-									if (_v15.b.$ === 'Unpressed') {
-										var _v16 = _v15.a;
-										var _v17 = _v15.b;
+								if (_v17.a.$ === 'Pressed') {
+									if (_v17.b.$ === 'Unpressed') {
+										var _v18 = _v17.a;
+										var _v19 = _v17.b;
 										return 1.0;
 									} else {
-										break _v15$2;
+										break _v17$2;
 									}
 								} else {
-									if (_v15.b.$ === 'Pressed') {
-										var _v18 = _v15.a;
-										var _v19 = _v15.b;
+									if (_v17.b.$ === 'Pressed') {
+										var _v20 = _v17.a;
+										var _v21 = _v17.b;
 										return -1.0;
 									} else {
-										break _v15$2;
+										break _v17$2;
 									}
 								}
 							}
@@ -13069,24 +16152,24 @@ var $author$project$Main$applyTick = function (model) {
 						A2(
 							$author$project$Main$rotateCannon,
 							function () {
-								var _v10 = _Utils_Tuple2(model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey);
-								_v10$2:
+								var _v12 = _Utils_Tuple2(model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey);
+								_v12$2:
 								while (true) {
-									if (_v10.a.$ === 'Pressed') {
-										if (_v10.b.$ === 'Unpressed') {
-											var _v11 = _v10.a;
-											var _v12 = _v10.b;
+									if (_v12.a.$ === 'Pressed') {
+										if (_v12.b.$ === 'Unpressed') {
+											var _v13 = _v12.a;
+											var _v14 = _v12.b;
 											return 1.0;
 										} else {
-											break _v10$2;
+											break _v12$2;
 										}
 									} else {
-										if (_v10.b.$ === 'Pressed') {
-											var _v13 = _v10.a;
-											var _v14 = _v10.b;
+										if (_v12.b.$ === 'Pressed') {
+											var _v15 = _v12.a;
+											var _v16 = _v12.b;
 											return -1.0;
 										} else {
-											break _v10$2;
+											break _v12$2;
 										}
 									}
 								}
@@ -13095,24 +16178,24 @@ var $author$project$Main$applyTick = function (model) {
 							A2(
 								$author$project$Main$rotateTank,
 								function () {
-									var _v5 = _Utils_Tuple2(model.rotateClockwiseKey, model.rotateCounterClockwiseKey);
-									_v5$2:
+									var _v7 = _Utils_Tuple2(model.rotateClockwiseKey, model.rotateCounterClockwiseKey);
+									_v7$2:
 									while (true) {
-										if (_v5.a.$ === 'Pressed') {
-											if (_v5.b.$ === 'Unpressed') {
-												var _v6 = _v5.a;
-												var _v7 = _v5.b;
+										if (_v7.a.$ === 'Pressed') {
+											if (_v7.b.$ === 'Unpressed') {
+												var _v8 = _v7.a;
+												var _v9 = _v7.b;
 												return 1.0;
 											} else {
-												break _v5$2;
+												break _v7$2;
 											}
 										} else {
-											if (_v5.b.$ === 'Pressed') {
-												var _v8 = _v5.a;
-												var _v9 = _v5.b;
+											if (_v7.b.$ === 'Pressed') {
+												var _v10 = _v7.a;
+												var _v11 = _v7.b;
 												return -1.0;
 											} else {
-												break _v5$2;
+												break _v7$2;
 											}
 										}
 									}
@@ -13121,24 +16204,24 @@ var $author$project$Main$applyTick = function (model) {
 								A2(
 									$author$project$Main$moveTank,
 									function () {
-										var _v0 = _Utils_Tuple2(model.forwardKey, model.backwardKey);
-										_v0$2:
+										var _v2 = _Utils_Tuple2(model.forwardKey, model.backwardKey);
+										_v2$2:
 										while (true) {
-											if (_v0.a.$ === 'Pressed') {
-												if (_v0.b.$ === 'Unpressed') {
-													var _v1 = _v0.a;
-													var _v2 = _v0.b;
+											if (_v2.a.$ === 'Pressed') {
+												if (_v2.b.$ === 'Unpressed') {
+													var _v3 = _v2.a;
+													var _v4 = _v2.b;
 													return 1.0;
 												} else {
-													break _v0$2;
+													break _v2$2;
 												}
 											} else {
-												if (_v0.b.$ === 'Pressed') {
-													var _v3 = _v0.a;
-													var _v4 = _v0.b;
+												if (_v2.b.$ === 'Pressed') {
+													var _v5 = _v2.a;
+													var _v6 = _v2.b;
 													return -1.0;
 												} else {
-													break _v0$2;
+													break _v2$2;
 												}
 											}
 										}
@@ -13206,7 +16289,7 @@ var $author$project$Main$update = F2(
 					$author$project$Main$applyTick(
 						_Utils_update(
 							model,
-							{tickTime: model.tickTime + deltaMs})),
+							{elapsedTime: model.elapsedTime + deltaMs, tickTime: model.tickTime + deltaMs})),
 					$elm$core$Platform$Cmd$none);
 			case 'KeyDown':
 				var value = msg.a;
@@ -13390,6 +16473,20 @@ var $avh4$elm_color$Color$RgbaSpace = F4(
 	});
 var $avh4$elm_color$Color$black = A4($avh4$elm_color$Color$RgbaSpace, 0 / 255, 0 / 255, 0 / 255, 1.0);
 var $avh4$elm_color$Color$blue = A4($avh4$elm_color$Color$RgbaSpace, 52 / 255, 101 / 255, 164 / 255, 1.0);
+var $w0rm$elm_physics$Physics$World$bodies = function (_v0) {
+	var world = _v0.a;
+	return A3(
+		$elm$core$List$foldl,
+		F2(
+			function (body, result) {
+				return A2(
+					$elm$core$List$cons,
+					$w0rm$elm_physics$Internal$Body$Protected(body),
+					result);
+			}),
+		_List_Nil,
+		world.bodies);
+};
 var $ianmackenzie$elm_units$Length$centimeters = function (numCentimeters) {
 	return $ianmackenzie$elm_units$Length$meters(0.01 * numCentimeters);
 };
@@ -13423,9 +16520,6 @@ var $ianmackenzie$elm_3d_scene$Scene3d$Material$color = function (givenColor) {
 		$ianmackenzie$elm_3d_scene$Scene3d$Types$Constant(
 			$ianmackenzie$elm_3d_scene$Scene3d$Material$toVec3(givenColor)));
 };
-var $ianmackenzie$elm_geometry$Point3d$fromMeters = function (givenCoordinates) {
-	return $ianmackenzie$elm_geometry$Geometry$Types$Point3d(givenCoordinates);
-};
 var $avh4$elm_color$Color$green = A4($avh4$elm_color$Color$RgbaSpace, 115 / 255, 210 / 255, 22 / 255, 1.0);
 var $ianmackenzie$elm_units$Pixels$int = function (numPixels) {
 	return $ianmackenzie$elm_units$Quantity$Quantity(numPixels);
@@ -13452,10 +16546,6 @@ var $ianmackenzie$elm_geometry$Point3d$xCoordinate = function (_v0) {
 var $ianmackenzie$elm_geometry$Point3d$yCoordinate = function (_v0) {
 	var p = _v0.a;
 	return $ianmackenzie$elm_units$Quantity$Quantity(p.y);
-};
-var $ianmackenzie$elm_geometry$Point3d$zCoordinate = function (_v0) {
-	var p = _v0.a;
-	return $ianmackenzie$elm_units$Quantity$Quantity(p.z);
 };
 var $ianmackenzie$elm_geometry$BoundingBox3d$from = F2(
 	function (firstPoint, secondPoint) {
@@ -13749,31 +16839,6 @@ var $ianmackenzie$elm_geometry$Vector3d$cross = F2(
 		return $ianmackenzie$elm_geometry$Geometry$Types$Vector3d(
 			{x: (v1.y * v2.z) - (v1.z * v2.y), y: (v1.z * v2.x) - (v1.x * v2.z), z: (v1.x * v2.y) - (v1.y * v2.x)});
 	});
-var $elm$core$Basics$abs = function (n) {
-	return (n < 0) ? (-n) : n;
-};
-var $elm$core$Basics$sqrt = _Basics_sqrt;
-var $ianmackenzie$elm_geometry$Vector3d$direction = function (_v0) {
-	var v = _v0.a;
-	var largestComponent = A2(
-		$elm$core$Basics$max,
-		$elm$core$Basics$abs(v.x),
-		A2(
-			$elm$core$Basics$max,
-			$elm$core$Basics$abs(v.y),
-			$elm$core$Basics$abs(v.z)));
-	if (!largestComponent) {
-		return $elm$core$Maybe$Nothing;
-	} else {
-		var scaledZ = v.z / largestComponent;
-		var scaledY = v.y / largestComponent;
-		var scaledX = v.x / largestComponent;
-		var scaledLength = $elm$core$Basics$sqrt(((scaledX * scaledX) + (scaledY * scaledY)) + (scaledZ * scaledZ));
-		return $elm$core$Maybe$Just(
-			$ianmackenzie$elm_geometry$Geometry$Types$Direction3d(
-				{x: scaledX / scaledLength, y: scaledY / scaledLength, z: scaledZ / scaledLength}));
-	}
-};
 var $elm$core$Maybe$andThen = F2(
 	function (callback, maybeValue) {
 		if (maybeValue.$ === 'Just') {
@@ -13788,12 +16853,6 @@ var $ianmackenzie$elm_geometry$Vector3d$dot = F2(
 		var v2 = _v0.a;
 		var v1 = _v1.a;
 		return $ianmackenzie$elm_units$Quantity$Quantity(((v1.x * v2.x) + (v1.y * v2.y)) + (v1.z * v2.z));
-	});
-var $ianmackenzie$elm_units$Quantity$greaterThan = F2(
-	function (_v0, _v1) {
-		var y = _v0.a;
-		var x = _v1.a;
-		return _Utils_cmp(x, y) > 0;
 	});
 var $ianmackenzie$elm_units$Quantity$lessThan = F2(
 	function (_v0, _v1) {
@@ -13901,12 +16960,6 @@ var $ianmackenzie$elm_geometry$Direction3d$toVector = function (_v0) {
 	var directionComponents = _v0.a;
 	return $ianmackenzie$elm_geometry$Geometry$Types$Vector3d(directionComponents);
 };
-var $ianmackenzie$elm_geometry$Geometry$Types$Frame3d = function (a) {
-	return {$: 'Frame3d', a: a};
-};
-var $ianmackenzie$elm_geometry$Frame3d$unsafe = function (properties) {
-	return $ianmackenzie$elm_geometry$Geometry$Types$Frame3d(properties);
-};
 var $ianmackenzie$elm_geometry$Frame3d$withZDirection = F2(
 	function (givenZDirection, givenOrigin) {
 		var _v0 = $ianmackenzie$elm_geometry$Direction3d$perpendicularBasis(givenZDirection);
@@ -13961,7 +17014,6 @@ var $elm$core$Basics$clamp = F3(
 var $ianmackenzie$elm_3d_scene$Scene3d$Types$LinearRgb = function (a) {
 	return {$: 'LinearRgb', a: a};
 };
-var $elm$core$Basics$pow = _Basics_pow;
 var $ianmackenzie$elm_3d_scene$Scene3d$ColorConversions$inverseGamma = function (u) {
 	return A3(
 		$elm$core$Basics$clamp,
@@ -14007,11 +17059,6 @@ var $ianmackenzie$elm_3d_camera$Camera3d$Types$Camera3d = function (a) {
 };
 var $ianmackenzie$elm_3d_camera$Camera3d$Types$Perspective = function (a) {
 	return {$: 'Perspective', a: a};
-};
-var $ianmackenzie$elm_units$Quantity$abs = function (_v0) {
-	var value = _v0.a;
-	return $ianmackenzie$elm_units$Quantity$Quantity(
-		$elm$core$Basics$abs(value));
 };
 var $ianmackenzie$elm_units$Quantity$half = function (_v0) {
 	var value = _v0.a;
@@ -14163,10 +17210,6 @@ var $ianmackenzie$elm_3d_scene$Scene3d$UnoptimizedShaders$plainQuadVertex = {
 	uniforms: {modelMatrix: 'modelMatrix', modelScale: 'modelScale', projectionMatrix: 'projectionMatrix', quadVertexPositions: 'quadVertexPositions', sceneProperties: 'sceneProperties', viewMatrix: 'viewMatrix'}
 };
 var $elm_explorations$linear_algebra$Math$Matrix4$fromRecord = _MJS_m4x4fromRecord;
-var $ianmackenzie$elm_geometry$Point3d$toMeters = function (_v0) {
-	var pointCoordinates = _v0.a;
-	return pointCoordinates;
-};
 var $ianmackenzie$elm_3d_scene$Scene3d$Entity$quadVertexPositions = F4(
 	function (firstPoint, secondPoint, thirdPoint, fourthPoint) {
 		var p4 = $ianmackenzie$elm_geometry$Point3d$toMeters(fourthPoint);
@@ -15202,10 +18245,6 @@ var $ianmackenzie$elm_3d_scene$Scene3d$defaultBlend = $elm_explorations$webgl$We
 	});
 var $ianmackenzie$elm_3d_scene$Scene3d$depthTestDefault = _List_fromArray(
 	[$elm_explorations$webgl$WebGL$Settings$DepthTest$default, $ianmackenzie$elm_3d_scene$Scene3d$defaultBlend]);
-var $ianmackenzie$elm_geometry$Frame3d$originPoint = function (_v0) {
-	var properties = _v0.a;
-	return properties.originPoint;
-};
 var $ianmackenzie$elm_3d_camera$Viewpoint3d$eyePoint = function (_v0) {
 	var frame = _v0.a;
 	return $ianmackenzie$elm_geometry$Frame3d$originPoint(frame);
@@ -15309,10 +18348,6 @@ var $ianmackenzie$elm_geometry$BoundingBox3d$union = F2(
 				minZ: A2($ianmackenzie$elm_units$Quantity$min, b1.minZ, b2.minZ)
 			});
 	});
-var $ianmackenzie$elm_geometry$Direction3d$unwrap = function (_v0) {
-	var coordinates = _v0.a;
-	return coordinates;
-};
 var $ianmackenzie$elm_geometry$Point3d$coordinates = function (_v0) {
 	var p = _v0.a;
 	return _Utils_Tuple3(
@@ -15474,10 +18509,6 @@ var $ianmackenzie$elm_3d_scene$Scene3d$getViewBounds = F4(
 		}
 	});
 var $ianmackenzie$elm_3d_scene$Scene3d$Transformation$identity = {isRightHanded: true, ix: 1, iy: 0, iz: 0, jx: 0, jy: 1, jz: 0, kx: 0, ky: 0, kz: 1, px: 0, py: 0, pz: 0, scale: 1};
-var $ianmackenzie$elm_units$Length$inMeters = function (_v0) {
-	var numMeters = _v0.a;
-	return numMeters;
-};
 var $ianmackenzie$elm_3d_scene$Scene3d$initStencil = $ianmackenzie$elm_3d_scene$Scene3d$updateStencil(
 	{fail: $elm_explorations$webgl$WebGL$Settings$StencilTest$replace, mask: 0, ref: $ianmackenzie$elm_3d_scene$Scene3d$initialStencilCount, test: $elm_explorations$webgl$WebGL$Settings$StencilTest$always, writeMask: 255, zfail: $elm_explorations$webgl$WebGL$Settings$StencilTest$replace, zpass: $elm_explorations$webgl$WebGL$Settings$StencilTest$replace});
 var $ianmackenzie$elm_geometry$Vector3d$length = function (_v0) {
@@ -15544,7 +18575,6 @@ var $ianmackenzie$elm_3d_scene$Scene3d$outsideStencil = _List_fromArray(
 		{fail: $elm_explorations$webgl$WebGL$Settings$StencilTest$keep, mask: $ianmackenzie$elm_3d_scene$Scene3d$upperFourBits, ref: 0, test: $elm_explorations$webgl$WebGL$Settings$StencilTest$equal, writeMask: 0, zfail: $elm_explorations$webgl$WebGL$Settings$StencilTest$keep, zpass: $elm_explorations$webgl$WebGL$Settings$StencilTest$keep}),
 		$ianmackenzie$elm_3d_scene$Scene3d$defaultBlend
 	]);
-var $elm$core$Basics$isInfinite = _Basics_isInfinite;
 var $ianmackenzie$elm_3d_camera$WebGL$Matrices$projectionMatrix = F2(
 	function (_v0, _v1) {
 		var camera = _v0.a;
@@ -15618,7 +18648,6 @@ var $ianmackenzie$elm_3d_camera$Viewpoint3d$viewDirection = function (_v0) {
 	return $ianmackenzie$elm_geometry$Direction3d$reverse(
 		$ianmackenzie$elm_geometry$Frame3d$zDirection(frame));
 };
-var $ianmackenzie$elm_geometry$Direction3d$x = $ianmackenzie$elm_geometry$Direction3d$positiveX;
 var $ianmackenzie$elm_geometry$Frame3d$atOrigin = $ianmackenzie$elm_geometry$Geometry$Types$Frame3d(
 	{originPoint: $ianmackenzie$elm_geometry$Point3d$origin, xDirection: $ianmackenzie$elm_geometry$Direction3d$x, yDirection: $ianmackenzie$elm_geometry$Direction3d$y, zDirection: $ianmackenzie$elm_geometry$Direction3d$z});
 var $ianmackenzie$elm_geometry_linear_algebra_interop$Geometry$Interop$LinearAlgebra$Frame3d$toMat4 = function (frame) {
@@ -16071,24 +19100,6 @@ var $ianmackenzie$elm_3d_scene$Scene3d$lightCastsShadows = function (_v0) {
 	return properties.castsShadows;
 };
 var $ianmackenzie$elm_3d_scene$Scene3d$noLights = $ianmackenzie$elm_3d_scene$Scene3d$SingleUnshadowedPass($ianmackenzie$elm_3d_scene$Scene3d$lightingDisabled.a);
-var $elm$core$List$partition = F2(
-	function (pred, list) {
-		var step = F2(
-			function (x, _v0) {
-				var trues = _v0.a;
-				var falses = _v0.b;
-				return pred(x) ? _Utils_Tuple2(
-					A2($elm$core$List$cons, x, trues),
-					falses) : _Utils_Tuple2(
-					trues,
-					A2($elm$core$List$cons, x, falses));
-			});
-		return A3(
-			$elm$core$List$foldr,
-			step,
-			_Utils_Tuple2(_List_Nil, _List_Nil),
-			list);
-	});
 var $ianmackenzie$elm_3d_scene$Scene3d$singleLight = function (_v0) {
 	var light = _v0.a;
 	return $elm_explorations$linear_algebra$Math$Matrix4$fromRecord(
@@ -16180,31 +19191,37 @@ var $ianmackenzie$elm_3d_scene$Scene3d$sunny = function (_arguments) {
 			whiteBalance: $ianmackenzie$elm_3d_scene$Scene3d$Light$daylight
 		});
 };
-var $ianmackenzie$elm_geometry$Geometry$Types$Sphere3d = function (a) {
-	return {$: 'Sphere3d', a: a};
-};
-var $ianmackenzie$elm_geometry$Sphere3d$withRadius = F2(
-	function (givenRadius, givenCenterPoint) {
-		return $ianmackenzie$elm_geometry$Geometry$Types$Sphere3d(
-			{
-				centerPoint: givenCenterPoint,
-				radius: $ianmackenzie$elm_units$Quantity$abs(givenRadius)
-			});
-	});
-var $ianmackenzie$elm_geometry$Sphere3d$atPoint = F2(
-	function (givenCenterPoint, givenRadius) {
-		return A2($ianmackenzie$elm_geometry$Sphere3d$withRadius, givenRadius, givenCenterPoint);
-	});
 var $ianmackenzie$elm_3d_scene$Scene3d$Material$metal = function (_v0) {
 	var baseColor = _v0.baseColor;
 	var roughness = _v0.roughness;
 	return $ianmackenzie$elm_3d_scene$Scene3d$Material$pbr(
 		{baseColor: baseColor, metallic: 1, roughness: roughness});
 };
-var $ianmackenzie$elm_geometry$Sphere3d$centerPoint = function (_v0) {
-	var properties = _v0.a;
-	return properties.centerPoint;
-};
+var $ianmackenzie$elm_geometry$Point3d$placeIn = F2(
+	function (_v0, _v1) {
+		var frame = _v0.a;
+		var p = _v1.a;
+		var _v2 = frame.originPoint;
+		var p0 = _v2.a;
+		var _v3 = frame.zDirection;
+		var k = _v3.a;
+		var _v4 = frame.yDirection;
+		var j = _v4.a;
+		var _v5 = frame.xDirection;
+		var i = _v5.a;
+		return $ianmackenzie$elm_geometry$Geometry$Types$Point3d(
+			{x: ((p0.x + (p.x * i.x)) + (p.y * j.x)) + (p.z * k.x), y: ((p0.y + (p.x * i.y)) + (p.y * j.y)) + (p.z * k.y), z: ((p0.z + (p.x * i.z)) + (p.y * j.z)) + (p.z * k.z)});
+	});
+var $ianmackenzie$elm_geometry$Sphere3d$placeIn = F2(
+	function (frame, sphere) {
+		return A2(
+			$ianmackenzie$elm_geometry$Sphere3d$withRadius,
+			$ianmackenzie$elm_geometry$Sphere3d$radius(sphere),
+			A2(
+				$ianmackenzie$elm_geometry$Point3d$placeIn,
+				frame,
+				$ianmackenzie$elm_geometry$Sphere3d$centerPoint(sphere)));
+	});
 var $ianmackenzie$elm_3d_scene$Scene3d$UnoptimizedShaders$unlitVertex = {
 	src: '\n        precision highp float;\n        \n        attribute highp vec3 position;\n        attribute mediump vec2 uv;\n        \n        uniform highp vec4 modelScale;\n        uniform highp mat4 modelMatrix;\n        uniform highp mat4 viewMatrix;\n        uniform highp mat4 projectionMatrix;\n        uniform highp mat4 sceneProperties;\n        \n        varying mediump vec2 interpolatedUv;\n        \n        vec4 getWorldPosition(vec3 modelPosition, vec4 modelScale, mat4 modelMatrix) {\n            vec4 scaledPosition = vec4(modelScale.xyz * modelPosition, 1.0);\n            return modelMatrix * scaledPosition;\n        }\n        \n        void main() {\n            vec4 worldPosition = getWorldPosition(position, modelScale, modelMatrix);\n            gl_Position = projectionMatrix * (viewMatrix * worldPosition);\n            interpolatedUv = uv;\n        }\n    ',
 	attributes: {position: 'position', uv: 'uv'},
@@ -17180,10 +20197,6 @@ var $ianmackenzie$elm_3d_scene$Scene3d$Entity$preScale = F2(
 		return $ianmackenzie$elm_3d_scene$Scene3d$Types$Entity(
 			A2($ianmackenzie$elm_3d_scene$Scene3d$Entity$preScaleNode, scalingFactors, node));
 	});
-var $ianmackenzie$elm_geometry$Sphere3d$radius = function (_v0) {
-	var properties = _v0.a;
-	return properties.radius;
-};
 var $ianmackenzie$elm_units$Angle$cos = function (_v0) {
 	var angle = _v0.a;
 	return $elm$core$Basics$cos(angle);
@@ -17267,43 +20280,11 @@ var $ianmackenzie$elm_3d_scene$Scene3d$Mesh$cullBackFaces = function (mesh) {
 var $ianmackenzie$elm_triangular_mesh$TriangularMesh$TriangularMesh = function (a) {
 	return {$: 'TriangularMesh', a: a};
 };
-var $elm$core$List$any = F2(
-	function (isOkay, list) {
-		any:
-		while (true) {
-			if (!list.b) {
-				return false;
-			} else {
-				var x = list.a;
-				var xs = list.b;
-				if (isOkay(x)) {
-					return true;
-				} else {
-					var $temp$isOkay = isOkay,
-						$temp$list = xs;
-					isOkay = $temp$isOkay;
-					list = $temp$list;
-					continue any;
-				}
-			}
-		}
-	});
 var $elm$core$List$all = F2(
 	function (isOkay, list) {
 		return !A2(
 			$elm$core$List$any,
 			A2($elm$core$Basics$composeL, $elm$core$Basics$not, isOkay),
-			list);
-	});
-var $elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
 			list);
 	});
 var $ianmackenzie$elm_triangular_mesh$TriangularMesh$indexed = F2(
@@ -17766,9 +20747,12 @@ var $author$project$Main$viewCannonBall = function (cannonBall) {
 		$ianmackenzie$elm_3d_scene$Scene3d$Material$metal(
 			{baseColor: $avh4$elm_color$Color$black, roughness: 0.5}),
 		A2(
-			$ianmackenzie$elm_geometry$Sphere3d$atPoint,
-			cannonBall.position,
-			$ianmackenzie$elm_units$Length$meters(0.25)));
+			$ianmackenzie$elm_geometry$Sphere3d$placeIn,
+			$w0rm$elm_physics$Physics$Body$frame(cannonBall),
+			A2(
+				$ianmackenzie$elm_geometry$Sphere3d$atPoint,
+				$ianmackenzie$elm_geometry$Point3d$origin,
+				$ianmackenzie$elm_units$Length$meters(0.25))));
 };
 var $ianmackenzie$elm_geometry$Frame3d$atPoint = function (point) {
 	return $ianmackenzie$elm_geometry$Frame3d$unsafe(
@@ -18550,8 +21534,6 @@ var $ianmackenzie$elm_3d_scene$Scene3d$Mesh$indexedFaces = function (givenMesh) 
 		return A4($ianmackenzie$elm_3d_scene$Scene3d$Types$MeshWithNormals, bounds, givenMesh, webGLMesh, $ianmackenzie$elm_3d_scene$Scene3d$Types$KeepBackFaces);
 	}
 };
-var $ianmackenzie$elm_geometry$Direction3d$negativeZ = $ianmackenzie$elm_geometry$Direction3d$unsafe(
-	{x: 0, y: 0, z: -1});
 var $ianmackenzie$elm_geometry$Direction3d$on = F2(
 	function (_v0, _v1) {
 		var sketchPlane = _v0.a;
@@ -18737,21 +21719,6 @@ var $ianmackenzie$elm_geometry$Direction3d$placeIn = F2(
 		var i = _v4.a;
 		return $ianmackenzie$elm_geometry$Geometry$Types$Direction3d(
 			{x: ((i.x * d.x) + (j.x * d.y)) + (k.x * d.z), y: ((i.y * d.x) + (j.y * d.y)) + (k.y * d.z), z: ((i.z * d.x) + (j.z * d.y)) + (k.z * d.z)});
-	});
-var $ianmackenzie$elm_geometry$Point3d$placeIn = F2(
-	function (_v0, _v1) {
-		var frame = _v0.a;
-		var p = _v1.a;
-		var _v2 = frame.originPoint;
-		var p0 = _v2.a;
-		var _v3 = frame.zDirection;
-		var k = _v3.a;
-		var _v4 = frame.yDirection;
-		var j = _v4.a;
-		var _v5 = frame.xDirection;
-		var i = _v5.a;
-		return $ianmackenzie$elm_geometry$Geometry$Types$Point3d(
-			{x: ((p0.x + (p.x * i.x)) + (p.y * j.x)) + (p.z * k.x), y: ((p0.y + (p.x * i.y)) + (p.y * j.y)) + (p.z * k.y), z: ((p0.z + (p.x * i.z)) + (p.y * j.z)) + (p.z * k.z)});
 	});
 var $ianmackenzie$elm_geometry$Axis3d$placeIn = F2(
 	function (frame, _v0) {
@@ -19056,7 +22023,10 @@ var $author$project$Main$game3dScene = function (model) {
 							A2(
 								$elm$core$List$cons,
 								$author$project$Main$viewTank(model.tank),
-								A2($elm$core$List$map, $author$project$Main$viewCannonBall, model.cannonBalls)))))),
+								A2(
+									$elm$core$List$map,
+									$author$project$Main$viewCannonBall,
+									$w0rm$elm_physics$Physics$World$bodies(model.physicsWorld))))))),
 			shadows: true,
 			sunlightDirection: $ianmackenzie$elm_geometry$Direction3d$yz(
 				$ianmackenzie$elm_units$Angle$degrees(-120)),
