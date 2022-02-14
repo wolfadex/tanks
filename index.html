@@ -12424,6 +12424,8 @@ var $ianmackenzie$elm_geometry$Point3d$origin = $ianmackenzie$elm_geometry$Geome
 var $author$project$Main$init = function (_v0) {
 	return _Utils_Tuple2(
 		{
+			aimCannonDown: $author$project$Main$Unpressed,
+			aimCannonUp: $author$project$Main$Unpressed,
 			backwardKey: $author$project$Main$Unpressed,
 			forwardKey: $author$project$Main$Unpressed,
 			rotateCannonClockwiseKey: $author$project$Main$Unpressed,
@@ -12764,6 +12766,47 @@ var $author$project$Main$subscriptions = function (_v0) {
 			]));
 };
 var $author$project$Main$Pressed = {$: 'Pressed'};
+var $ianmackenzie$elm_units$Quantity$max = F2(
+	function (_v0, _v1) {
+		var x = _v0.a;
+		var y = _v1.a;
+		return $ianmackenzie$elm_units$Quantity$Quantity(
+			A2($elm$core$Basics$max, x, y));
+	});
+var $elm$core$Basics$min = F2(
+	function (x, y) {
+		return (_Utils_cmp(x, y) < 0) ? x : y;
+	});
+var $ianmackenzie$elm_units$Quantity$min = F2(
+	function (_v0, _v1) {
+		var x = _v0.a;
+		var y = _v1.a;
+		return $ianmackenzie$elm_units$Quantity$Quantity(
+			A2($elm$core$Basics$min, x, y));
+	});
+var $ianmackenzie$elm_units$Quantity$plus = F2(
+	function (_v0, _v1) {
+		var y = _v0.a;
+		var x = _v1.a;
+		return $ianmackenzie$elm_units$Quantity$Quantity(x + y);
+	});
+var $author$project$Main$aimCannon = F2(
+	function (magnitude, tank) {
+		return _Utils_update(
+			tank,
+			{
+				cannonPitch: A2(
+					$ianmackenzie$elm_units$Quantity$min,
+					$ianmackenzie$elm_units$Angle$degrees(0),
+					A2(
+						$ianmackenzie$elm_units$Quantity$max,
+						$ianmackenzie$elm_units$Angle$degrees(-45),
+						A2(
+							$ianmackenzie$elm_units$Quantity$plus,
+							$ianmackenzie$elm_units$Angle$degrees(magnitude * (-1.0)),
+							tank.cannonPitch)))
+			});
+	});
 var $author$project$Main$framerate = 16.6;
 var $ianmackenzie$elm_geometry$Geometry$Types$Vector3d = function (a) {
 	return {$: 'Vector3d', a: a};
@@ -12849,12 +12892,6 @@ var $author$project$Main$moveTank = F2(
 					tank.position)
 			});
 	});
-var $ianmackenzie$elm_units$Quantity$plus = F2(
-	function (_v0, _v1) {
-		var y = _v0.a;
-		var x = _v1.a;
-		return $ianmackenzie$elm_units$Quantity$Quantity(x + y);
-	});
 var $author$project$Main$rotateCannon = F2(
 	function (magnitude, tank) {
 		return _Utils_update(
@@ -12886,84 +12923,110 @@ var $author$project$Main$applyTick = function (model) {
 				model,
 				{
 					tank: A2(
-						$author$project$Main$rotateCannon,
+						$author$project$Main$aimCannon,
 						function () {
-							var _v10 = _Utils_Tuple2(model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey);
-							_v10$2:
+							var _v15 = _Utils_Tuple2(model.aimCannonUp, model.aimCannonDown);
+							_v15$2:
 							while (true) {
-								if (_v10.a.$ === 'Pressed') {
-									if (_v10.b.$ === 'Unpressed') {
-										var _v11 = _v10.a;
-										var _v12 = _v10.b;
+								if (_v15.a.$ === 'Pressed') {
+									if (_v15.b.$ === 'Unpressed') {
+										var _v16 = _v15.a;
+										var _v17 = _v15.b;
 										return 1.0;
 									} else {
-										break _v10$2;
+										break _v15$2;
 									}
 								} else {
-									if (_v10.b.$ === 'Pressed') {
-										var _v13 = _v10.a;
-										var _v14 = _v10.b;
+									if (_v15.b.$ === 'Pressed') {
+										var _v18 = _v15.a;
+										var _v19 = _v15.b;
 										return -1.0;
 									} else {
-										break _v10$2;
+										break _v15$2;
 									}
 								}
 							}
 							return 0.0;
 						}(),
 						A2(
-							$author$project$Main$rotateTank,
+							$author$project$Main$rotateCannon,
 							function () {
-								var _v5 = _Utils_Tuple2(model.rotateClockwiseKey, model.rotateCounterClockwiseKey);
-								_v5$2:
+								var _v10 = _Utils_Tuple2(model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey);
+								_v10$2:
 								while (true) {
-									if (_v5.a.$ === 'Pressed') {
-										if (_v5.b.$ === 'Unpressed') {
-											var _v6 = _v5.a;
-											var _v7 = _v5.b;
+									if (_v10.a.$ === 'Pressed') {
+										if (_v10.b.$ === 'Unpressed') {
+											var _v11 = _v10.a;
+											var _v12 = _v10.b;
 											return 1.0;
 										} else {
-											break _v5$2;
+											break _v10$2;
 										}
 									} else {
-										if (_v5.b.$ === 'Pressed') {
-											var _v8 = _v5.a;
-											var _v9 = _v5.b;
+										if (_v10.b.$ === 'Pressed') {
+											var _v13 = _v10.a;
+											var _v14 = _v10.b;
 											return -1.0;
 										} else {
-											break _v5$2;
+											break _v10$2;
 										}
 									}
 								}
 								return 0.0;
 							}(),
 							A2(
-								$author$project$Main$moveTank,
+								$author$project$Main$rotateTank,
 								function () {
-									var _v0 = _Utils_Tuple2(model.forwardKey, model.backwardKey);
-									_v0$2:
+									var _v5 = _Utils_Tuple2(model.rotateClockwiseKey, model.rotateCounterClockwiseKey);
+									_v5$2:
 									while (true) {
-										if (_v0.a.$ === 'Pressed') {
-											if (_v0.b.$ === 'Unpressed') {
-												var _v1 = _v0.a;
-												var _v2 = _v0.b;
+										if (_v5.a.$ === 'Pressed') {
+											if (_v5.b.$ === 'Unpressed') {
+												var _v6 = _v5.a;
+												var _v7 = _v5.b;
 												return 1.0;
 											} else {
-												break _v0$2;
+												break _v5$2;
 											}
 										} else {
-											if (_v0.b.$ === 'Pressed') {
-												var _v3 = _v0.a;
-												var _v4 = _v0.b;
+											if (_v5.b.$ === 'Pressed') {
+												var _v8 = _v5.a;
+												var _v9 = _v5.b;
 												return -1.0;
 											} else {
-												break _v0$2;
+												break _v5$2;
 											}
 										}
 									}
 									return 0.0;
 								}(),
-								model.tank))),
+								A2(
+									$author$project$Main$moveTank,
+									function () {
+										var _v0 = _Utils_Tuple2(model.forwardKey, model.backwardKey);
+										_v0$2:
+										while (true) {
+											if (_v0.a.$ === 'Pressed') {
+												if (_v0.b.$ === 'Unpressed') {
+													var _v1 = _v0.a;
+													var _v2 = _v0.b;
+													return 1.0;
+												} else {
+													break _v0$2;
+												}
+											} else {
+												if (_v0.b.$ === 'Pressed') {
+													var _v3 = _v0.a;
+													var _v4 = _v0.b;
+													return -1.0;
+												} else {
+													break _v0$2;
+												}
+											}
+										}
+										return 0.0;
+									}(),
+									model.tank)))),
 					tickTime: remainingTickTime
 				});
 			if (_Utils_cmp(remainingTickTime, $author$project$Main$framerate) < 0) {
@@ -12978,6 +13041,8 @@ var $author$project$Main$applyTick = function (model) {
 		}
 	}
 };
+var $author$project$Main$AimDown = {$: 'AimDown'};
+var $author$project$Main$AimUp = {$: 'AimUp'};
 var $author$project$Main$CannonRotateClockwise = {$: 'CannonRotateClockwise'};
 var $author$project$Main$CannonRotateCounterClockwise = {$: 'CannonRotateCounterClockwise'};
 var $author$project$Main$MoveBackward = {$: 'MoveBackward'};
@@ -13002,6 +13067,10 @@ var $author$project$Main$decodeKeyToAction = A2(
 				return $elm$json$Json$Decode$succeed($author$project$Main$CannonRotateCounterClockwise);
 			case 'q':
 				return $elm$json$Json$Decode$succeed($author$project$Main$CannonRotateClockwise);
+			case 'r':
+				return $elm$json$Json$Decode$succeed($author$project$Main$AimUp);
+			case 'f':
+				return $elm$json$Json$Decode$succeed($author$project$Main$AimDown);
 			default:
 				return $elm$json$Json$Decode$fail('Other key');
 		}
@@ -13060,63 +13129,91 @@ var $author$project$Main$update = F2(
 									model,
 									{rotateCannonClockwiseKey: $author$project$Main$Pressed}),
 								$elm$core$Platform$Cmd$none);
-						default:
+						case 'CannonRotateCounterClockwise':
 							var _v7 = _v1.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{rotateCannonCounterClockwiseKey: $author$project$Main$Pressed}),
 								$elm$core$Platform$Cmd$none);
+						case 'AimUp':
+							var _v8 = _v1.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{aimCannonUp: $author$project$Main$Pressed}),
+								$elm$core$Platform$Cmd$none);
+						default:
+							var _v9 = _v1.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{aimCannonDown: $author$project$Main$Pressed}),
+								$elm$core$Platform$Cmd$none);
 					}
 				}
 			default:
 				var value = msg.a;
-				var _v8 = A2($elm$json$Json$Decode$decodeValue, $author$project$Main$decodeKeyToAction, value);
-				if (_v8.$ === 'Err') {
+				var _v10 = A2($elm$json$Json$Decode$decodeValue, $author$project$Main$decodeKeyToAction, value);
+				if (_v10.$ === 'Err') {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				} else {
-					switch (_v8.a.$) {
+					switch (_v10.a.$) {
 						case 'MoveForward':
-							var _v9 = _v8.a;
+							var _v11 = _v10.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{forwardKey: $author$project$Main$Unpressed}),
 								$elm$core$Platform$Cmd$none);
 						case 'MoveBackward':
-							var _v10 = _v8.a;
+							var _v12 = _v10.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{backwardKey: $author$project$Main$Unpressed}),
 								$elm$core$Platform$Cmd$none);
 						case 'RotateClockwise':
-							var _v11 = _v8.a;
+							var _v13 = _v10.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{rotateClockwiseKey: $author$project$Main$Unpressed}),
 								$elm$core$Platform$Cmd$none);
 						case 'RotateCounterClockwise':
-							var _v12 = _v8.a;
+							var _v14 = _v10.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{rotateCounterClockwiseKey: $author$project$Main$Unpressed}),
 								$elm$core$Platform$Cmd$none);
 						case 'CannonRotateClockwise':
-							var _v13 = _v8.a;
+							var _v15 = _v10.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{rotateCannonClockwiseKey: $author$project$Main$Unpressed}),
 								$elm$core$Platform$Cmd$none);
-						default:
-							var _v14 = _v8.a;
+						case 'CannonRotateCounterClockwise':
+							var _v16 = _v10.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{rotateCannonCounterClockwiseKey: $author$project$Main$Unpressed}),
+								$elm$core$Platform$Cmd$none);
+						case 'AimUp':
+							var _v17 = _v10.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{aimCannonUp: $author$project$Main$Unpressed}),
+								$elm$core$Platform$Cmd$none);
+						default:
+							var _v18 = _v10.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{aimCannonDown: $author$project$Main$Unpressed}),
 								$elm$core$Platform$Cmd$none);
 					}
 				}
@@ -13557,10 +13654,6 @@ var $elm_explorations$webgl$WebGL$entityWith = _WebGL_entity;
 var $ianmackenzie$elm_geometry$Geometry$Types$BoundingBox3d = function (a) {
 	return {$: 'BoundingBox3d', a: a};
 };
-var $elm$core$Basics$min = F2(
-	function (x, y) {
-		return (_Utils_cmp(x, y) < 0) ? x : y;
-	});
 var $ianmackenzie$elm_geometry$BoundingBox3d$hullHelp = F7(
 	function (currentMinX, currentMaxX, currentMinY, currentMaxY, currentMinZ, currentMaxZ, points) {
 		hullHelp:
@@ -14887,20 +14980,6 @@ var $ianmackenzie$elm_geometry$BoundingBox3d$extrema = function (_v0) {
 	var boundingBoxExtrema = _v0.a;
 	return boundingBoxExtrema;
 };
-var $ianmackenzie$elm_units$Quantity$max = F2(
-	function (_v0, _v1) {
-		var x = _v0.a;
-		var y = _v1.a;
-		return $ianmackenzie$elm_units$Quantity$Quantity(
-			A2($elm$core$Basics$max, x, y));
-	});
-var $ianmackenzie$elm_units$Quantity$min = F2(
-	function (_v0, _v1) {
-		var x = _v0.a;
-		var y = _v1.a;
-		return $ianmackenzie$elm_units$Quantity$Quantity(
-			A2($elm$core$Basics$min, x, y));
-	});
 var $ianmackenzie$elm_geometry$BoundingBox3d$union = F2(
 	function (firstBox, secondBox) {
 		var b2 = $ianmackenzie$elm_geometry$BoundingBox3d$extrema(secondBox);
@@ -18198,6 +18277,7 @@ var $ianmackenzie$elm_geometry$Frame3d$translateIn = F3(
 			A2($ianmackenzie$elm_geometry$Vector3d$withLength, distance, direction),
 			frame);
 	});
+var $ianmackenzie$elm_geometry$Axis3d$y = A2($ianmackenzie$elm_geometry$Axis3d$through, $ianmackenzie$elm_geometry$Point3d$origin, $ianmackenzie$elm_geometry$Direction3d$y);
 var $author$project$Main$viewTank = function (tank) {
 	var topPosition = A3(
 		$ianmackenzie$elm_geometry$Frame3d$translateIn,
@@ -18208,7 +18288,7 @@ var $author$project$Main$viewTank = function (tank) {
 			A2($ianmackenzie$elm_geometry$Vector3d$from, $ianmackenzie$elm_geometry$Point3d$origin, tank.position),
 			A3(
 				$ianmackenzie$elm_geometry$Frame3d$rotateAroundOwn,
-				function (_v2) {
+				function (_v3) {
 					return $ianmackenzie$elm_geometry$Axis3d$z;
 				},
 				A2($ianmackenzie$elm_units$Quantity$plus, tank.forward, tank.cannonRotation),
@@ -18224,15 +18304,21 @@ var $author$project$Main$viewTank = function (tank) {
 			A2($ianmackenzie$elm_geometry$Vector3d$from, $ianmackenzie$elm_geometry$Point3d$origin, tank.position),
 			A3(
 				$ianmackenzie$elm_geometry$Frame3d$rotateAroundOwn,
-				function (_v1) {
+				function (_v2) {
 					return $ianmackenzie$elm_geometry$Axis3d$z;
 				},
 				A2($ianmackenzie$elm_units$Quantity$plus, tank.forward, tank.cannonRotation),
 				A3(
-					$ianmackenzie$elm_geometry$Frame3d$translateIn,
-					$ianmackenzie$elm_geometry$Direction3d$positiveX,
-					$ianmackenzie$elm_units$Length$meters(0.5),
-					$ianmackenzie$elm_geometry$Frame3d$atPoint($ianmackenzie$elm_geometry$Point3d$origin)))));
+					$ianmackenzie$elm_geometry$Frame3d$rotateAroundOwn,
+					function (_v1) {
+						return $ianmackenzie$elm_geometry$Axis3d$y;
+					},
+					tank.cannonPitch,
+					A3(
+						$ianmackenzie$elm_geometry$Frame3d$translateIn,
+						$ianmackenzie$elm_geometry$Direction3d$positiveX,
+						$ianmackenzie$elm_units$Length$meters(0.5),
+						$ianmackenzie$elm_geometry$Frame3d$atPoint($ianmackenzie$elm_geometry$Point3d$origin))))));
 	var bodyPosition = A3(
 		$ianmackenzie$elm_geometry$Frame3d$translateIn,
 		$ianmackenzie$elm_geometry$Direction3d$positiveZ,

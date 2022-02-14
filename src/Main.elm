@@ -41,6 +41,8 @@ type alias Model =
     , rotateCounterClockwiseKey : KeyPressesd
     , rotateCannonClockwiseKey : KeyPressesd
     , rotateCannonCounterClockwiseKey : KeyPressesd
+    , aimCannonUp : KeyPressesd
+    , aimCannonDown : KeyPressesd
     }
 
 
@@ -76,6 +78,8 @@ init () =
       , rotateCounterClockwiseKey = Unpressed
       , rotateCannonClockwiseKey = Unpressed
       , rotateCannonCounterClockwiseKey = Unpressed
+      , aimCannonUp = Unpressed
+      , aimCannonDown = Unpressed
       }
     , Cmd.none
     )
@@ -103,6 +107,8 @@ type GameAction
     | RotateCounterClockwise
     | CannonRotateClockwise
     | CannonRotateCounterClockwise
+    | AimUp
+    | AimDown
 
 
 framerate : Float
@@ -155,6 +161,17 @@ applyTick model =
                                     _ ->
                                         0.0
                                 )
+                            |> aimCannon
+                                (case ( model.aimCannonUp, model.aimCannonDown ) of
+                                    ( Pressed, Unpressed ) ->
+                                        1.0
+
+                                    ( Unpressed, Pressed ) ->
+                                        -1.0
+
+                                    _ ->
+                                        0.0
+                                )
                 }
         in
         if remainingTickTime < framerate then
@@ -198,6 +215,12 @@ update msg model =
                 Ok CannonRotateCounterClockwise ->
                     ( { model | rotateCannonCounterClockwiseKey = Pressed }, Cmd.none )
 
+                Ok AimUp ->
+                    ( { model | aimCannonUp = Pressed }, Cmd.none )
+
+                Ok AimDown ->
+                    ( { model | aimCannonDown = Pressed }, Cmd.none )
+
         KeyUp value ->
             case Json.Decode.decodeValue decodeKeyToAction value of
                 Err _ ->
@@ -220,6 +243,12 @@ update msg model =
 
                 Ok CannonRotateCounterClockwise ->
                     ( { model | rotateCannonCounterClockwiseKey = Unpressed }, Cmd.none )
+
+                Ok AimUp ->
+                    ( { model | aimCannonUp = Unpressed }, Cmd.none )
+
+                Ok AimDown ->
+                    ( { model | aimCannonDown = Unpressed }, Cmd.none )
 
 
 moveTank : Float -> Tank -> Tank
@@ -250,6 +279,17 @@ rotateCannon magnitude tank =
     }
 
 
+aimCannon : Float -> Tank -> Tank
+aimCannon magnitude tank =
+    { tank
+        | cannonPitch =
+            tank.cannonPitch
+                |> Quantity.plus (Angle.degrees (magnitude * -1.0))
+                |> Quantity.max (Angle.degrees -45)
+                |> Quantity.min (Angle.degrees 0)
+    }
+
+
 decodeKeyToAction : Json.Decode.Decoder GameAction
 decodeKeyToAction =
     Json.Decode.andThen
@@ -272,6 +312,12 @@ decodeKeyToAction =
 
                 "q" ->
                     Json.Decode.succeed CannonRotateClockwise
+
+                "r" ->
+                    Json.Decode.succeed AimUp
+
+                "f" ->
+                    Json.Decode.succeed AimDown
 
                 _ ->
                     Json.Decode.fail "Other key"
@@ -359,6 +405,7 @@ viewTank tank =
         cannonPosition =
             Frame3d.atPoint Point3d.origin
                 |> Frame3d.translateIn Direction3d.positiveX (Length.meters 0.5)
+                |> Frame3d.rotateAroundOwn (\_ -> Axis3d.y) tank.cannonPitch
                 |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) (Quantity.plus tank.forward tank.cannonRotation)
                 |> Frame3d.translateBy (Vector3d.from Point3d.origin tank.position)
                 |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
