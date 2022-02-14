@@ -12986,12 +12986,10 @@ var $author$project$Main$RotateClockwise = {$: 'RotateClockwise'};
 var $author$project$Main$RotateCounterClockwise = {$: 'RotateCounterClockwise'};
 var $elm$json$Json$Decode$andThen = _Json_andThen;
 var $elm$json$Json$Decode$fail = _Json_fail;
-var $elm$core$Debug$log = _Debug_log;
 var $author$project$Main$decodeKeyToAction = A2(
 	$elm$json$Json$Decode$andThen,
 	function (key) {
-		var _v0 = A2($elm$core$Debug$log, 'key', key);
-		switch (_v0) {
+		switch (key) {
 			case 'w':
 				return $elm$json$Json$Decode$succeed($author$project$Main$MoveForward);
 			case 's':
@@ -18201,6 +18199,20 @@ var $ianmackenzie$elm_geometry$Frame3d$translateIn = F3(
 			frame);
 	});
 var $author$project$Main$viewTank = function (tank) {
+	var topPosition = A3(
+		$ianmackenzie$elm_geometry$Frame3d$translateIn,
+		$ianmackenzie$elm_geometry$Direction3d$positiveZ,
+		$ianmackenzie$elm_units$Length$meters(0.5),
+		A2(
+			$ianmackenzie$elm_geometry$Frame3d$translateBy,
+			A2($ianmackenzie$elm_geometry$Vector3d$from, $ianmackenzie$elm_geometry$Point3d$origin, tank.position),
+			A3(
+				$ianmackenzie$elm_geometry$Frame3d$rotateAroundOwn,
+				function (_v2) {
+					return $ianmackenzie$elm_geometry$Axis3d$z;
+				},
+				A2($ianmackenzie$elm_units$Quantity$plus, tank.forward, tank.cannonRotation),
+				$ianmackenzie$elm_geometry$Frame3d$atPoint($ianmackenzie$elm_geometry$Point3d$origin))));
 	var material = $ianmackenzie$elm_3d_scene$Scene3d$Material$metal(
 		{baseColor: $avh4$elm_color$Color$lightBlue, roughness: 0.5});
 	var cannonPosition = A3(
@@ -18235,11 +18247,6 @@ var $author$project$Main$viewTank = function (tank) {
 				},
 				tank.forward,
 				$ianmackenzie$elm_geometry$Frame3d$atPoint($ianmackenzie$elm_geometry$Point3d$origin))));
-	var topPosition = A3(
-		$ianmackenzie$elm_geometry$Frame3d$translateIn,
-		$ianmackenzie$elm_geometry$Direction3d$positiveZ,
-		$ianmackenzie$elm_units$Length$meters(0.25),
-		bodyPosition);
 	return $ianmackenzie$elm_3d_scene$Scene3d$group(
 		_List_fromArray(
 			[

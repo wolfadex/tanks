@@ -254,7 +254,7 @@ decodeKeyToAction : Json.Decode.Decoder GameAction
 decodeKeyToAction =
     Json.Decode.andThen
         (\key ->
-            case Debug.log "key" key of
+            case key of
                 "w" ->
                     Json.Decode.succeed MoveForward
 
@@ -289,7 +289,6 @@ view model =
 game3dScene : Model -> Html Msg
 game3dScene model =
     let
-        -- Define a camera as usual
         camera : Camera3d Meters coordinates
         camera =
             Camera3d.perspective
@@ -351,14 +350,13 @@ viewTank tank =
 
         topPosition : Frame3d.Frame3d Meters World defines2
         topPosition =
-            bodyPosition
-                |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.25)
+            Frame3d.atPoint Point3d.origin
+                |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) (Quantity.plus tank.forward tank.cannonRotation)
+                |> Frame3d.translateBy (Vector3d.from Point3d.origin tank.position)
+                |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
 
         cannonPosition : Frame3d.Frame3d Meters World defines2
         cannonPosition =
-            -- topPosition
-            --     |> Frame3d.translateIn (Direction3d.xy tank.forward) (Length.meters 0.5)
-            --     |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) tank.cannonRotation
             Frame3d.atPoint Point3d.origin
                 |> Frame3d.translateIn Direction3d.positiveX (Length.meters 0.5)
                 |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) (Quantity.plus tank.forward tank.cannonRotation)
