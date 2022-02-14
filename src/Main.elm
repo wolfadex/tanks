@@ -1,4 +1,4 @@
-module Main exposing (..)
+module Main exposing (main)
 
 import Angle exposing (Angle)
 import Axis3d
@@ -15,10 +15,9 @@ import Json.Decode exposing (Value)
 import Length exposing (Meters)
 import Pixels
 import Point3d exposing (Point3d)
-import Quantity exposing (Quantity)
+import Quantity
 import Scene3d
-import Scene3d.Material exposing (Material)
-import Sphere3d
+import Scene3d.Material
 import Vector3d
 import Viewpoint3d
 
@@ -34,7 +33,20 @@ main =
 
 
 type alias Model =
-    { tank : Tank }
+    { tickTime : Float
+    , tank : Tank
+    , forwardKey : KeyPressesd
+    , backwardKey : KeyPressesd
+    , rotateClockwiseKey : KeyPressesd
+    , rotateCounterClockwiseKey : KeyPressesd
+    , rotateCannonClockwiseKey : KeyPressesd
+    , rotateCannonCounterClockwiseKey : KeyPressesd
+    }
+
+
+type KeyPressesd
+    = Pressed
+    | Unpressed
 
 
 type alias Tank =
@@ -51,12 +63,19 @@ type World
 
 init : () -> ( Model, Cmd Msg )
 init () =
-    ( { tank =
+    ( { tickTime = 0
+      , tank =
             { forward = Angle.degrees 0
             , position = Point3d.origin
             , cannonRotation = Angle.degrees 0
             , cannonPitch = Angle.degrees 0
             }
+      , forwardKey = Unpressed
+      , backwardKey = Unpressed
+      , rotateClockwiseKey = Unpressed
+      , rotateCounterClockwiseKey = Unpressed
+      , rotateCannonClockwiseKey = Unpressed
+      , rotateCannonCounterClockwiseKey = Unpressed
       }
     , Cmd.none
     )
@@ -64,12 +83,17 @@ init () =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Browser.Events.onKeyPress (Json.Decode.map KeyPress Json.Decode.value)
+    Sub.batch
+        [ Browser.Events.onKeyDown (Json.Decode.map KeyDown Json.Decode.value)
+        , Browser.Events.onKeyUp (Json.Decode.map KeyUp Json.Decode.value)
+        , Browser.Events.onAnimationFrameDelta Tick
+        ]
 
 
 type Msg
-    = NoOp
-    | KeyPress Value
+    = Tick Float
+    | KeyDown Value
+    | KeyUp Value
 
 
 type GameAction
@@ -77,38 +101,125 @@ type GameAction
     | MoveBackward
     | RotateClockwise
     | RotateCounterClockwise
+    | CannonRotateClockwise
+    | CannonRotateCounterClockwise
+
+
+framerate : Float
+framerate =
+    16.6
+
+
+applyTick : Model -> Model
+applyTick model =
+    if model.tickTime >= framerate then
+        let
+            remainingTickTime =
+                model.tickTime - framerate
+
+            nextModel =
+                { model
+                    | tickTime = remainingTickTime
+                    , tank =
+                        model.tank
+                            |> moveTank
+                                (case ( model.forwardKey, model.backwardKey ) of
+                                    ( Pressed, Unpressed ) ->
+                                        1.0
+
+                                    ( Unpressed, Pressed ) ->
+                                        -1.0
+
+                                    _ ->
+                                        0.0
+                                )
+                            |> rotateTank
+                                (case ( model.rotateClockwiseKey, model.rotateCounterClockwiseKey ) of
+                                    ( Pressed, Unpressed ) ->
+                                        1.0
+
+                                    ( Unpressed, Pressed ) ->
+                                        -1.0
+
+                                    _ ->
+                                        0.0
+                                )
+                            |> rotateCannon
+                                (case ( model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey ) of
+                                    ( Pressed, Unpressed ) ->
+                                        1.0
+
+                                    ( Unpressed, Pressed ) ->
+                                        -1.0
+
+                                    _ ->
+                                        0.0
+                                )
+                }
+        in
+        if remainingTickTime < framerate then
+            nextModel
+
+        else
+            applyTick nextModel
+
+    else
+        model
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NoOp ->
-            ( model, Cmd.none )
+        Tick deltaMs ->
+            ( applyTick { model | tickTime = model.tickTime + deltaMs }
+            , Cmd.none
+            )
 
-        KeyPress value ->
-            case Json.Decode.decodeValue decodeMove value |> Debug.log "decode" of
+        KeyDown value ->
+            case Json.Decode.decodeValue decodeKeyToAction value of
                 Err _ ->
                     ( model, Cmd.none )
 
                 Ok MoveForward ->
-                    ( { model | tank = moveTank 1.0 model.tank }
-                    , Cmd.none
-                    )
+                    ( { model | forwardKey = Pressed }, Cmd.none )
 
                 Ok MoveBackward ->
-                    ( { model | tank = moveTank -1.0 model.tank }
-                    , Cmd.none
-                    )
+                    ( { model | backwardKey = Pressed }, Cmd.none )
 
                 Ok RotateClockwise ->
-                    ( { model | tank = rotateTank 1.0 model.tank }
-                    , Cmd.none
-                    )
+                    ( { model | rotateClockwiseKey = Pressed }, Cmd.none )
 
                 Ok RotateCounterClockwise ->
-                    ( { model | tank = rotateTank -1.0 model.tank }
-                    , Cmd.none
-                    )
+                    ( { model | rotateCounterClockwiseKey = Pressed }, Cmd.none )
+
+                Ok CannonRotateClockwise ->
+                    ( { model | rotateCannonClockwiseKey = Pressed }, Cmd.none )
+
+                Ok CannonRotateCounterClockwise ->
+                    ( { model | rotateCannonCounterClockwiseKey = Pressed }, Cmd.none )
+
+        KeyUp value ->
+            case Json.Decode.decodeValue decodeKeyToAction value of
+                Err _ ->
+                    ( model, Cmd.none )
+
+                Ok MoveForward ->
+                    ( { model | forwardKey = Unpressed }, Cmd.none )
+
+                Ok MoveBackward ->
+                    ( { model | backwardKey = Unpressed }, Cmd.none )
+
+                Ok RotateClockwise ->
+                    ( { model | rotateClockwiseKey = Unpressed }, Cmd.none )
+
+                Ok RotateCounterClockwise ->
+                    ( { model | rotateCounterClockwiseKey = Unpressed }, Cmd.none )
+
+                Ok CannonRotateClockwise ->
+                    ( { model | rotateCannonClockwiseKey = Unpressed }, Cmd.none )
+
+                Ok CannonRotateCounterClockwise ->
+                    ( { model | rotateCannonCounterClockwiseKey = Unpressed }, Cmd.none )
 
 
 moveTank : Float -> Tank -> Tank
@@ -116,7 +227,7 @@ moveTank magnitude tank =
     { tank
         | position =
             Point3d.translateBy
-                (Vector3d.meters magnitude 0.0 0.0
+                (Vector3d.meters (magnitude * 0.05) 0.0 0.0
                     |> Vector3d.rotateAround Axis3d.z tank.forward
                 )
                 tank.position
@@ -127,12 +238,20 @@ rotateTank : Float -> Tank -> Tank
 rotateTank magnitude tank =
     { tank
         | forward =
-            Quantity.plus tank.forward (Angle.degrees (magnitude * 45.0))
+            Quantity.plus tank.forward (Angle.degrees (magnitude * 1.0))
     }
 
 
-decodeMove : Json.Decode.Decoder GameAction
-decodeMove =
+rotateCannon : Float -> Tank -> Tank
+rotateCannon magnitude tank =
+    { tank
+        | cannonRotation =
+            Quantity.plus tank.cannonRotation (Angle.degrees (magnitude * 1.0))
+    }
+
+
+decodeKeyToAction : Json.Decode.Decoder GameAction
+decodeKeyToAction =
     Json.Decode.andThen
         (\key ->
             case Debug.log "key" key of
@@ -147,6 +266,12 @@ decodeMove =
 
                 "a" ->
                     Json.Decode.succeed RotateClockwise
+
+                "e" ->
+                    Json.Decode.succeed CannonRotateCounterClockwise
+
+                "q" ->
+                    Json.Decode.succeed CannonRotateClockwise
 
                 _ ->
                     Json.Decode.fail "Other key"
@@ -217,27 +342,33 @@ viewTank tank =
         material =
             Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
 
-        generalPosition : Frame3d.Frame3d Meters World defines2
-        generalPosition =
+        bodyPosition : Frame3d.Frame3d Meters World defines2
+        bodyPosition =
             Frame3d.atPoint Point3d.origin
                 |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) tank.forward
                 |> Frame3d.translateBy (Vector3d.from Point3d.origin tank.position)
+                |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.25)
 
-        -- (Point3d.translateIn Direction3d.positiveZ (Length.meters 0.5) tank.position)
         topPosition : Frame3d.Frame3d Meters World defines2
         topPosition =
-            Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.5) generalPosition
+            bodyPosition
+                |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.25)
 
+        cannonPosition : Frame3d.Frame3d Meters World defines2
         cannonPosition =
-            generalPosition
+            -- topPosition
+            --     |> Frame3d.translateIn (Direction3d.xy tank.forward) (Length.meters 0.5)
+            --     |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) tank.cannonRotation
+            Frame3d.atPoint Point3d.origin
+                |> Frame3d.translateIn Direction3d.positiveX (Length.meters 0.5)
+                |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) (Quantity.plus tank.forward tank.cannonRotation)
+                |> Frame3d.translateBy (Vector3d.from Point3d.origin tank.position)
                 |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
-                |> Frame3d.translateIn (Direction3d.xy tank.forward) (Length.meters 0.5)
     in
     Scene3d.group
         [ Scene3d.blockWithShadow
             material
-            (Block3d.centeredOn
-                generalPosition
+            (Block3d.centeredOn bodyPosition
                 ( Length.meters 2.0
                 , Length.meters 1.0
                 , Length.meters 0.5
