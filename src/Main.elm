@@ -3,7 +3,7 @@ module Main exposing (main)
 import Acceleration
 import Angle exposing (Angle)
 import Axis3d
-import Block3d
+import Block3d exposing (Block3d)
 import Browser exposing (Document)
 import Browser.Events
 import Camera3d exposing (Camera3d)
@@ -28,7 +28,7 @@ import Quantity
 import Scene3d
 import Scene3d.Material
 import Sphere3d
-import Vector3d exposing (Vector3d)
+import Vector3d
 import Viewpoint3d
 
 
@@ -46,6 +46,7 @@ type alias Model =
     { elapsedTime : Float
     , nextId : Int
     , tank : Tank
+    , enemies : List Tank
     , forwardKey : KeyPressesd
     , backwardKey : KeyPressesd
     , rotateClockwiseKey : KeyPressesd
@@ -69,6 +70,7 @@ type alias Entity =
 type EntityType
     = Ground
     | CannonBall
+    | WallPermanent (Block3d Meters WorldCoordinates)
 
 
 type KeyPressesd
@@ -87,13 +89,14 @@ type alias Tank =
 init : () -> ( Model, Cmd Msg )
 init () =
     ( { elapsedTime = 0
-      , nextId = 1
+      , nextId = 2
       , tank =
             { forward = Angle.degrees 0
             , position = Point3d.origin
             , cannonRotation = Angle.degrees 0
             , cannonPitch = Angle.degrees 0
             }
+      , enemies = []
       , forwardKey = Unpressed
       , backwardKey = Unpressed
       , rotateClockwiseKey = Unpressed
@@ -111,6 +114,50 @@ init () =
                     (Physics.Body.plane
                         { id = 0
                         , type_ = Ground
+                        }
+                    )
+                |> Physics.World.add
+                    (let
+                        block =
+                            Block3d.from (Point3d.meters 10 4 0) (Point3d.meters 11 -4 2)
+                     in
+                     Physics.Body.block
+                        block
+                        { id = 1
+                        , type_ = WallPermanent block
+                        }
+                    )
+                |> Physics.World.add
+                    (let
+                        block =
+                            Block3d.from (Point3d.meters 4 -10 0) (Point3d.meters -4 -11 2)
+                     in
+                     Physics.Body.block
+                        block
+                        { id = 1
+                        , type_ = WallPermanent block
+                        }
+                    )
+                |> Physics.World.add
+                    (let
+                        block =
+                            Block3d.from (Point3d.meters -10 -4 0) (Point3d.meters -11 4 2)
+                     in
+                     Physics.Body.block
+                        block
+                        { id = 1
+                        , type_ = WallPermanent block
+                        }
+                    )
+                |> Physics.World.add
+                    (let
+                        block =
+                            Block3d.from (Point3d.meters -4 10 0) (Point3d.meters 4 11 2)
+                     in
+                     Physics.Body.block
+                        block
+                        { id = 1
+                        , type_ = WallPermanent block
                         }
                     )
       }
@@ -206,11 +253,15 @@ applyTick deltaMs model =
             simulatedWorld
                 |> Physics.World.keepIf
                     (\body ->
-                        let
-                            entityType =
-                                (Physics.Body.data body).type_
-                        in
-                        (entityType == Ground) || not (isInContact body contacts)
+                        case (Physics.Body.data body).type_ of
+                            Ground ->
+                                True
+
+                            WallPermanent _ ->
+                                True
+
+                            _ ->
+                                not (isInContact body contacts)
                     )
         , tank =
             model.tank
@@ -467,16 +518,15 @@ game3dScene model =
         , background = Scene3d.backgroundColor Color.black
         , entities =
             ground
-                :: Scene3d.lineSegment (Scene3d.Material.color Color.red)
-                    (LineSegment3d.along Axis3d.z (Length.meters 0) (Length.meters 10))
-                :: Scene3d.lineSegment (Scene3d.Material.color Color.blue)
-                    (LineSegment3d.along Axis3d.x (Length.meters 0) (Length.meters 10))
-                :: Scene3d.lineSegment (Scene3d.Material.color Color.lightGreen)
-                    (LineSegment3d.along Axis3d.y (Length.meters 0) (Length.meters 10))
-                :: viewTank model.tank
-                :: List.map
-                    viewCannonBall
-                    (Physics.World.bodies model.physicsWorld)
+                -- Debugging
+                -- :: Scene3d.lineSegment (Scene3d.Material.color Color.red)
+                --     (LineSegment3d.along Axis3d.z (Length.meters 0) (Length.meters 10))
+                -- :: Scene3d.lineSegment (Scene3d.Material.color Color.blue)
+                --     (LineSegment3d.along Axis3d.x (Length.meters 0) (Length.meters 10))
+                -- :: Scene3d.lineSegment (Scene3d.Material.color Color.lightGreen)
+                --     (LineSegment3d.along Axis3d.y (Length.meters 0) (Length.meters 10))
+                :: viewTank (Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }) model.tank
+                :: List.map viewEntity (Physics.World.bodies model.physicsWorld)
         , shadows = True
 
         -- Specify the global up direction (this controls the orientation of
@@ -489,22 +539,28 @@ game3dScene model =
         }
 
 
-viewCannonBall : Body Entity -> Scene3d.Entity WorldCoordinates
-viewCannonBall cannonBall =
-    Scene3d.sphereWithShadow
-        (Scene3d.Material.metal { baseColor = Color.black, roughness = 0.5 })
-        (Sphere3d.atPoint Point3d.origin (Length.meters 0.25)
-            |> Sphere3d.placeIn (Physics.Body.frame cannonBall)
-        )
+viewEntity : Body Entity -> Scene3d.Entity WorldCoordinates
+viewEntity entity =
+    case (Physics.Body.data entity).type_ of
+        CannonBall ->
+            Scene3d.sphereWithShadow
+                (Scene3d.Material.metal { baseColor = Color.black, roughness = 0.5 })
+                (Sphere3d.atPoint Point3d.origin (Length.meters 0.25)
+                    |> Sphere3d.placeIn (Physics.Body.frame entity)
+                )
+
+        Ground ->
+            Scene3d.nothing
+
+        WallPermanent block ->
+            Scene3d.blockWithShadow
+                (Scene3d.Material.metal { baseColor = Color.gray, roughness = 0.5 })
+                block
 
 
-viewTank : Tank -> Scene3d.Entity WorldCoordinates
-viewTank tank =
+viewTank : Scene3d.Material.Uniform WorldCoordinates -> Tank -> Scene3d.Entity WorldCoordinates
+viewTank material tank =
     let
-        material : Scene3d.Material.Material coordinates { a | normals : () }
-        material =
-            Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
-
         bodyPosition : Frame3d.Frame3d Meters WorldCoordinates defines2
         bodyPosition =
             Frame3d.atPoint Point3d.origin
