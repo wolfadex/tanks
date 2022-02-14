@@ -13,6 +13,7 @@ import Frame3d
 import Html exposing (Html)
 import Json.Decode exposing (Value)
 import Length exposing (Meters)
+import LineSegment3d exposing (LineSegment3d)
 import Pixels
 import Point3d exposing (Point3d)
 import Quantity
@@ -405,10 +406,10 @@ game3dScene model =
                     , roughness = 0.8
                     }
                 )
-                (Point3d.fromMeters { x = -10, y = -10, z = 0 })
-                (Point3d.fromMeters { x = -10, y = 10, z = 0 })
-                (Point3d.fromMeters { x = 10, y = 10, z = 0 })
-                (Point3d.fromMeters { x = 10, y = -10, z = 0 })
+                (Point3d.fromMeters { x = -100, y = -100, z = 0 })
+                (Point3d.fromMeters { x = -100, y = 100, z = 0 })
+                (Point3d.fromMeters { x = 100, y = 100, z = 0 })
+                (Point3d.fromMeters { x = 100, y = -100, z = 0 })
     in
     Scene3d.sunny
         { camera = camera
@@ -417,6 +418,12 @@ game3dScene model =
         , background = Scene3d.backgroundColor Color.black
         , entities =
             ground
+                :: Scene3d.lineSegment (Scene3d.Material.color Color.red)
+                    (LineSegment3d.along Axis3d.z (Length.meters 0) (Length.meters 10))
+                :: Scene3d.lineSegment (Scene3d.Material.color Color.blue)
+                    (LineSegment3d.along Axis3d.x (Length.meters 0) (Length.meters 10))
+                :: Scene3d.lineSegment (Scene3d.Material.color Color.lightGreen)
+                    (LineSegment3d.along Axis3d.y (Length.meters 0) (Length.meters 10))
                 :: viewTank model.tank
                 :: List.map viewCannonBall model.cannonBalls
         , shadows = True
