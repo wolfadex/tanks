@@ -18,7 +18,8 @@ import Point3d exposing (Point3d)
 import Quantity
 import Scene3d
 import Scene3d.Material
-import Vector3d
+import Sphere3d
+import Vector3d exposing (Vector3d)
 import Viewpoint3d
 
 
@@ -43,6 +44,14 @@ type alias Model =
     , rotateCannonCounterClockwiseKey : KeyPressesd
     , aimCannonUp : KeyPressesd
     , aimCannonDown : KeyPressesd
+    , fireCannon : KeyPressesd
+    , cannonBalls : List CannonBall
+    }
+
+
+type alias CannonBall =
+    { position : Point3d Meters World
+    , velocity : Vector3d Meters World
     }
 
 
@@ -80,6 +89,8 @@ init () =
       , rotateCannonCounterClockwiseKey = Unpressed
       , aimCannonUp = Unpressed
       , aimCannonDown = Unpressed
+      , fireCannon = Unpressed
+      , cannonBalls = []
       }
     , Cmd.none
     )
@@ -109,6 +120,7 @@ type GameAction
     | CannonRotateCounterClockwise
     | AimUp
     | AimDown
+    | FireCannon
 
 
 framerate : Float
@@ -123,9 +135,33 @@ applyTick model =
             remainingTickTime =
                 model.tickTime - framerate
 
+            cannonBalls otherCannonBalls =
+                case model.fireCannon of
+                    Pressed ->
+                        Point3d.origin
+                            |> Point3d.translateIn Direction3d.positiveX (Length.meters 1.5)
+                            |> Point3d.rotateAround Axis3d.y model.tank.cannonPitch
+                            |> Point3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
+                            |> Point3d.translateBy (Vector3d.from Point3d.origin model.tank.position)
+                            |> Point3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
+                            |> (\position ->
+                                    { position = position
+                                    , velocity =
+                                        Vector3d.meters 0.1 0 0
+                                            |> Vector3d.rotateAround Axis3d.y model.tank.cannonPitch
+                                            |> Vector3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
+                                    }
+                                        :: otherCannonBalls
+                               )
+
+                    Unpressed ->
+                        otherCannonBalls
+
             nextModel =
                 { model
                     | tickTime = remainingTickTime
+                    , cannonBalls =
+                        cannonBalls (List.map moveCannonBall model.cannonBalls)
                     , tank =
                         model.tank
                             |> moveTank
@@ -184,6 +220,11 @@ applyTick model =
         model
 
 
+moveCannonBall : CannonBall -> CannonBall
+moveCannonBall cannonBall =
+    { cannonBall | position = Point3d.translateBy cannonBall.velocity cannonBall.position }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -221,6 +262,9 @@ update msg model =
                 Ok AimDown ->
                     ( { model | aimCannonDown = Pressed }, Cmd.none )
 
+                Ok FireCannon ->
+                    ( { model | fireCannon = Pressed }, Cmd.none )
+
         KeyUp value ->
             case Json.Decode.decodeValue decodeKeyToAction value of
                 Err _ ->
@@ -249,6 +293,9 @@ update msg model =
 
                 Ok AimDown ->
                     ( { model | aimCannonDown = Unpressed }, Cmd.none )
+
+                Ok FireCannon ->
+                    ( { model | fireCannon = Unpressed }, Cmd.none )
 
 
 moveTank : Float -> Tank -> Tank
@@ -319,6 +366,9 @@ decodeKeyToAction =
                 "f" ->
                     Json.Decode.succeed AimDown
 
+                " " ->
+                    Json.Decode.succeed FireCannon
+
                 _ ->
                     Json.Decode.fail "Other key"
         )
@@ -366,9 +416,9 @@ game3dScene model =
         , dimensions = ( Pixels.int 1200, Pixels.int 720 )
         , background = Scene3d.backgroundColor Color.black
         , entities =
-            [ ground
-            , viewTank model.tank
-            ]
+            ground
+                :: viewTank model.tank
+                :: List.map viewCannonBall model.cannonBalls
         , shadows = True
 
         -- Specify the global up direction (this controls the orientation of
@@ -381,9 +431,17 @@ game3dScene model =
         }
 
 
+viewCannonBall : CannonBall -> Scene3d.Entity World
+viewCannonBall cannonBall =
+    Scene3d.sphereWithShadow
+        (Scene3d.Material.metal { baseColor = Color.black, roughness = 0.5 })
+        (Sphere3d.atPoint cannonBall.position (Length.meters 0.25))
+
+
 viewTank : Tank -> Scene3d.Entity World
 viewTank tank =
     let
+        material : Scene3d.Material.Material coordinates { a | normals : () }
         material =
             Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
 
