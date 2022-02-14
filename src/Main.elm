@@ -19,6 +19,7 @@ import Length exposing (Meters)
 import LineSegment3d
 import Mass
 import Physics.Body exposing (Body)
+import Physics.Contact
 import Physics.Coordinates exposing (WorldCoordinates)
 import Physics.World exposing (World)
 import Pixels
@@ -42,8 +43,8 @@ main =
 
 
 type alias Model =
-    { tickTime : Float
-    , elapsedTime : Float
+    { elapsedTime : Float
+    , nextId : Int
     , tank : Tank
     , forwardKey : KeyPressesd
     , backwardKey : KeyPressesd
@@ -55,14 +56,19 @@ type alias Model =
     , aimCannonDown : KeyPressesd
     , fireCannon : KeyPressesd
     , lastCannonFiredAt : Float
-    , physicsWorld : World CannonBall
+    , physicsWorld : World Entity
     }
 
 
-type alias CannonBall =
-    { position : Point3d Meters WorldCoordinates
-    , velocity : Vector3d Meters WorldCoordinates
+type alias Entity =
+    { id : Int
+    , type_ : EntityType
     }
+
+
+type EntityType
+    = Ground
+    | CannonBall
 
 
 type KeyPressesd
@@ -80,8 +86,8 @@ type alias Tank =
 
 init : () -> ( Model, Cmd Msg )
 init () =
-    ( { tickTime = 0
-      , elapsedTime = 0
+    ( { elapsedTime = 0
+      , nextId = 1
       , tank =
             { forward = Angle.degrees 0
             , position = Point3d.origin
@@ -101,6 +107,12 @@ init () =
       , physicsWorld =
             Physics.World.empty
                 |> Physics.World.withGravity (Acceleration.metersPerSecondSquared 9.80665) Direction3d.negativeZ
+                |> Physics.World.add
+                    (Physics.Body.plane
+                        { id = 0
+                        , type_ = Ground
+                        }
+                    )
       }
     , Cmd.none
     )
@@ -133,158 +145,141 @@ type GameAction
     | FireCannon
 
 
-framerate : Float
-framerate =
-    16.6
-
-
-applyTick : Model -> Model
-applyTick model =
-    if model.tickTime >= framerate then
-        let
-            remainingTickTime =
-                model.tickTime - framerate
-
-            ( cannonBallMaybeAdded, newLastCannonBallFireTime ) =
-                case model.fireCannon of
-                    Pressed ->
-                        if model.elapsedTime - model.lastCannonFiredAt > 1000 then
-                            ( model.physicsWorld
-                                |> Physics.World.add
-                                    (let
-                                        position =
-                                            Point3d.origin
-                                                |> Point3d.translateIn Direction3d.positiveX (Length.meters 1.5)
-                                                |> Point3d.rotateAround Axis3d.y model.tank.cannonPitch
-                                                |> Point3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
-                                                |> Point3d.translateBy (Vector3d.from Point3d.origin model.tank.position)
-                                                |> Point3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
-
-                                        velocity =
-                                            Vector3d.meters 0.1 0 0
-                                                |> Vector3d.rotateAround Axis3d.y model.tank.cannonPitch
-                                                |> Vector3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
-                                     in
-                                     Physics.Body.sphere
-                                        (Sphere3d.atPoint
-                                            Point3d.origin
-                                            (Length.meters 0.25)
-                                        )
-                                        { position = position
-                                        , velocity = velocity
-                                        }
-                                        |> Physics.Body.moveTo position
-                                        |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 5.5))
-                                        |> Physics.Body.applyImpulse
-                                            (Force.newtons 500
-                                                |> Quantity.times (Duration.seconds 0.5)
-                                            )
-                                            (Maybe.withDefault Direction3d.x
-                                                (Vector3d.direction
-                                                    (Vector3d.meters 0.1 0 0
-                                                        |> Vector3d.rotateAround Axis3d.y model.tank.cannonPitch
-                                                        |> Vector3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
-                                                    )
+applyTick : Float -> Model -> Model
+applyTick deltaMs model =
+    let
+        ( cannonBallMaybeAdded, newLastCannonBallFireTime, nextId ) =
+            case model.fireCannon of
+                Pressed ->
+                    if model.elapsedTime - model.lastCannonFiredAt > 500 then
+                        ( model.physicsWorld
+                            |> Physics.World.add
+                                (let
+                                    position =
+                                        Point3d.origin
+                                            |> Point3d.translateIn Direction3d.positiveX (Length.meters 1.5)
+                                            |> Point3d.rotateAround Axis3d.y model.tank.cannonPitch
+                                            |> Point3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
+                                            |> Point3d.translateBy (Vector3d.from Point3d.origin model.tank.position)
+                                            |> Point3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
+                                 in
+                                 Physics.Body.sphere (Sphere3d.atPoint Point3d.origin (Length.meters 0.25))
+                                    { id = model.nextId
+                                    , type_ = CannonBall
+                                    }
+                                    |> Physics.Body.moveTo position
+                                    |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 5.5))
+                                    |> Physics.Body.applyImpulse
+                                        (Force.newtons 150 |> Quantity.times (Duration.seconds 0.5))
+                                        (Maybe.withDefault Direction3d.x
+                                            (Vector3d.direction
+                                                (Vector3d.meters 0.1 0 0
+                                                    |> Vector3d.rotateAround Axis3d.y model.tank.cannonPitch
+                                                    |> Vector3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
                                                 )
                                             )
-                                            (Point3d.origin
-                                                |> Point3d.translateIn Direction3d.positiveX (Length.meters 1.5)
-                                                |> Point3d.rotateAround Axis3d.y model.tank.cannonPitch
-                                                |> Point3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
-                                                |> Point3d.translateBy (Vector3d.from Point3d.origin model.tank.position)
-                                                |> Point3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
-                                            )
-                                    )
-                            , model.elapsedTime
-                            )
-
-                        else
-                            ( model.physicsWorld, model.lastCannonFiredAt )
-
-                    Unpressed ->
-                        ( model.physicsWorld, model.lastCannonFiredAt )
-
-            nextModel =
-                { model
-                    | tickTime = remainingTickTime
-                    , lastCannonFiredAt = newLastCannonBallFireTime
-                    , physicsWorld =
-                        cannonBallMaybeAdded
-                            |> Physics.World.simulate (Duration.seconds (1 / 60))
-                            |> Physics.World.keepIf
-                                (\body ->
-                                    Frame3d.originPoint (Physics.Body.frame body)
-                                        |> Point3d.zCoordinate
-                                        |> Quantity.greaterThan (Length.meters 0)
+                                        )
+                                        position
                                 )
-                    , tank =
-                        model.tank
-                            |> moveTank
-                                (case ( model.forwardKey, model.backwardKey ) of
-                                    ( Pressed, Unpressed ) ->
-                                        1.0
+                        , model.elapsedTime
+                        , model.nextId + 1
+                        )
 
-                                    ( Unpressed, Pressed ) ->
-                                        -1.0
+                    else
+                        ( model.physicsWorld, model.lastCannonFiredAt, model.nextId )
 
-                                    _ ->
-                                        0.0
-                                )
-                            |> rotateTank
-                                (case ( model.rotateClockwiseKey, model.rotateCounterClockwiseKey ) of
-                                    ( Pressed, Unpressed ) ->
-                                        1.0
+                Unpressed ->
+                    ( model.physicsWorld, model.lastCannonFiredAt, model.nextId )
 
-                                    ( Unpressed, Pressed ) ->
-                                        -1.0
+        simulatedWorld =
+            cannonBallMaybeAdded
+                |> Physics.World.simulate (Duration.milliseconds deltaMs)
 
-                                    _ ->
-                                        0.0
-                                )
-                            |> rotateCannon
-                                (case ( model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey ) of
-                                    ( Pressed, Unpressed ) ->
-                                        1.0
+        contacts =
+            Physics.World.contacts simulatedWorld
+    in
+    { model
+        | elapsedTime = model.elapsedTime + deltaMs
+        , nextId = nextId
+        , lastCannonFiredAt = newLastCannonBallFireTime
+        , physicsWorld =
+            simulatedWorld
+                |> Physics.World.keepIf
+                    (\body ->
+                        let
+                            entityType =
+                                (Physics.Body.data body).type_
+                        in
+                        (entityType == Ground) || not (isInContact body contacts)
+                    )
+        , tank =
+            model.tank
+                |> moveTank
+                    (case ( model.forwardKey, model.backwardKey ) of
+                        ( Pressed, Unpressed ) ->
+                            1.0
 
-                                    ( Unpressed, Pressed ) ->
-                                        -1.0
+                        ( Unpressed, Pressed ) ->
+                            -1.0
 
-                                    _ ->
-                                        0.0
-                                )
-                            |> aimCannon
-                                (case ( model.aimCannonUp, model.aimCannonDown ) of
-                                    ( Pressed, Unpressed ) ->
-                                        1.0
+                        _ ->
+                            0.0
+                    )
+                |> rotateTank
+                    (case ( model.rotateClockwiseKey, model.rotateCounterClockwiseKey ) of
+                        ( Pressed, Unpressed ) ->
+                            1.0
 
-                                    ( Unpressed, Pressed ) ->
-                                        -1.0
+                        ( Unpressed, Pressed ) ->
+                            -1.0
 
-                                    _ ->
-                                        0.0
-                                )
-                }
-        in
-        if remainingTickTime < framerate then
-            nextModel
+                        _ ->
+                            0.0
+                    )
+                |> rotateCannon
+                    (case ( model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey ) of
+                        ( Pressed, Unpressed ) ->
+                            1.0
 
-        else
-            applyTick nextModel
+                        ( Unpressed, Pressed ) ->
+                            -1.0
 
-    else
-        model
+                        _ ->
+                            0.0
+                    )
+                |> aimCannon
+                    (case ( model.aimCannonUp, model.aimCannonDown ) of
+                        ( Pressed, Unpressed ) ->
+                            1.0
+
+                        ( Unpressed, Pressed ) ->
+                            -1.0
+
+                        _ ->
+                            0.0
+                    )
+    }
 
 
-moveCannonBall : CannonBall -> CannonBall
-moveCannonBall cannonBall =
-    { cannonBall | position = Point3d.translateBy cannonBall.velocity cannonBall.position }
+isInContact : Body { id : Int, type_ : EntityType } -> List (Physics.Contact.Contact { id : Int, type_ : EntityType }) -> Bool
+isInContact body contacts =
+    case contacts of
+        [] ->
+            False
+
+        next :: rest ->
+            let
+                ( leftBody, rightBody ) =
+                    Physics.Contact.bodies next
+            in
+            body == leftBody || body == rightBody || isInContact body rest
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Tick deltaMs ->
-            ( applyTick { model | tickTime = model.tickTime + deltaMs, elapsedTime = model.elapsedTime + deltaMs }
+            ( applyTick deltaMs model
             , Cmd.none
             )
 
@@ -494,7 +489,7 @@ game3dScene model =
         }
 
 
-viewCannonBall : Body CannonBall -> Scene3d.Entity WorldCoordinates
+viewCannonBall : Body Entity -> Scene3d.Entity WorldCoordinates
 viewCannonBall cannonBall =
     Scene3d.sphereWithShadow
         (Scene3d.Material.metal { baseColor = Color.black, roughness = 0.5 })
