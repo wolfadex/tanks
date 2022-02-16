@@ -5,6 +5,7 @@ import Angle exposing (Angle)
 import Axis3d
 import Block3d exposing (Block3d)
 import Browser exposing (Document)
+import Browser.Dom
 import Browser.Events
 import Camera3d exposing (Camera3d)
 import Color
@@ -28,6 +29,7 @@ import Quantity
 import Scene3d
 import Scene3d.Material
 import Sphere3d
+import Task
 import Vector3d
 import Viewpoint3d
 
@@ -44,6 +46,7 @@ main =
 
 type alias Model =
     { elapsedTime : Float
+    , windowSize : { width : Int, height : Int }
     , nextId : Int
     , tank : Tank
     , playerId : Int
@@ -83,6 +86,7 @@ type alias Tank =
 init : () -> ( Model, Cmd Msg )
 init () =
     ( { elapsedTime = 0
+      , windowSize = { width = 800, height = 600 }
       , nextId = 1
       , tank =
             { cannonRotation = Angle.degrees 0
@@ -187,7 +191,11 @@ init () =
                         |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 1000))
                     )
       }
-    , Cmd.none
+    , Browser.Dom.getViewport
+        |> Task.perform
+            (\viewport ->
+                WindowResize (floor viewport.viewport.width) (floor viewport.viewport.height)
+            )
     )
 
 
@@ -197,6 +205,7 @@ subscriptions _ =
         [ Browser.Events.onKeyDown (Json.Decode.map KeyDown Json.Decode.value)
         , Browser.Events.onKeyUp (Json.Decode.map KeyUp Json.Decode.value)
         , Browser.Events.onAnimationFrameDelta Tick
+        , Browser.Events.onResize WindowResize
         ]
 
 
@@ -204,6 +213,7 @@ type Msg
     = Tick Float
     | KeyDown Value
     | KeyUp Value
+    | WindowResize Int Int
 
 
 type GameAction
@@ -409,6 +419,9 @@ update msg model =
             ( applyTick deltaMs model
             , Cmd.none
             )
+
+        WindowResize width height ->
+            ( { model | windowSize = Debug.log "window size" { width = width, height = height } }, Cmd.none )
 
         KeyDown value ->
             case Json.Decode.decodeValue decodeKeyToAction value of
@@ -618,7 +631,7 @@ game3dScene model =
     Scene3d.sunny
         { camera = camera
         , clipDepth = Length.centimeters 0.5
-        , dimensions = ( Pixels.int 1200, Pixels.int 720 )
+        , dimensions = ( Pixels.int model.windowSize.width, Pixels.int (model.windowSize.width * 9 // 16) )
         , background = Scene3d.backgroundColor Color.black
         , entities =
             ground
