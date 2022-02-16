@@ -215,7 +215,7 @@ applyTick deltaMs model =
         ( cannonBallMaybeAdded, newLastCannonBallFireTime, nextId ) =
             case model.fireCannon of
                 Pressed ->
-                    if model.elapsedTime - model.lastCannonFiredAt > 500 then
+                    if model.elapsedTime - model.lastCannonFiredAt > 100 then
                         case
                             Physics.World.bodies model.physicsWorld
                                 |> findInList
@@ -245,10 +245,10 @@ applyTick deltaMs model =
                                         position : Frame3d.Frame3d Meters WorldCoordinates { defines : Physics.Coordinates.BodyCoordinates }
                                         position =
                                             Physics.Body.frame playerTankBody
-                                                |> Frame3d.translateAlongOwn (\_ -> Axis3d.z) (Length.meters 0.5)
-                                                |> Frame3d.translateAlongOwn (\_ -> Axis3d.x) (Length.meters 1.5)
-                                                |> Frame3d.rotateAround Axis3d.y playerTankData.cannonPitch
-                                                |> Frame3d.rotateAround Axis3d.z playerTankData.cannonRotation
+                                                |> Frame3d.translateAlongOwn Frame3d.zAxis (Length.meters 0.5)
+                                                |> Frame3d.rotateAroundOwn Frame3d.zAxis playerTankData.cannonRotation
+                                                |> Frame3d.rotateAroundOwn Frame3d.yAxis playerTankData.cannonPitch
+                                                |> Frame3d.translateAlongOwn Frame3d.xAxis (Length.meters 1.5)
 
                                         cannonBallBody : Body Entity
                                         cannonBallBody =
@@ -258,13 +258,11 @@ applyTick deltaMs model =
                                                 , type_ = CannonBall
                                                 }
                                                 |> Physics.Body.moveTo (Frame3d.originPoint position)
-                                                -- |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 5.5))
-                                                |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.grams 5))
+                                                |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 5.5))
                                      in
                                      cannonBallBody
                                         |> Physics.Body.applyImpulse
-                                            -- (Force.newtons 150 |> Quantity.times (Duration.seconds 0.5))
-                                            (Force.newtons 0.1 |> Quantity.times (Duration.seconds 0.5))
+                                            (Force.newtons 150 |> Quantity.times (Duration.seconds 0.5))
                                             (Frame3d.xDirection position)
                                             (Physics.Body.originPoint cannonBallBody)
                                     )
