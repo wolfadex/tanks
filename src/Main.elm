@@ -10,6 +10,7 @@ import Browser.Events exposing (Visibility(..))
 import Camera3d exposing (Camera3d)
 import Color
 import Cylinder3d
+import Direction2d
 import Direction3d
 import Duration
 import Element exposing (..)
@@ -19,17 +20,17 @@ import Frame3d
 import Html exposing (Html)
 import Json.Decode exposing (Value)
 import Length exposing (Meters)
-import LineSegment3d
 import Mass
 import Physics.Body exposing (Body)
 import Physics.Contact
-import Physics.Coordinates exposing (BodyCoordinates, WorldCoordinates)
+import Physics.Coordinates exposing (WorldCoordinates)
 import Physics.World exposing (World)
 import Pixels
-import Point3d exposing (Point3d)
+import Point3d
 import Quantity
 import Scene3d
-import Scene3d.Material exposing (Textured)
+import Scene3d.Material
+import SketchPlane3d
 import Sphere3d
 import Task
 import Vector3d
@@ -212,6 +213,17 @@ init () =
                         |> Physics.Body.moveTo (Point3d.meters 15 0 0)
                         |> Physics.Body.withBehavior Physics.Body.static
                     )
+                |> Physics.World.add
+                    (Physics.Body.sphere
+                        (Sphere3d.atPoint Point3d.origin (Length.meters 1.0))
+                        (EBunker
+                            { cannonRotation = Angle.degrees 0
+                            , cannonPitch = Angle.degrees 0
+                            }
+                        )
+                        |> Physics.Body.moveTo (Point3d.meters -15 0 0)
+                        |> Physics.Body.withBehavior Physics.Body.static
+                    )
       }
     , Browser.Dom.getViewport
         |> Task.perform
@@ -260,30 +272,32 @@ type GameAction
 applyTick : Float -> Model -> Model
 applyTick deltaMs model =
     let
+        maybePlayerTank : Maybe ( Body Entity, Tank )
+        maybePlayerTank =
+            Physics.World.bodies model.physicsWorld
+                |> findInList
+                    (\body ->
+                        let
+                            data =
+                                Physics.Body.data body
+                        in
+                        case data of
+                            ETank id tankData ->
+                                if id == model.playerId then
+                                    Just ( body, tankData )
+
+                                else
+                                    Nothing
+
+                            _ ->
+                                Nothing
+                    )
+
         ( cannonBallMaybeAdded, newLastCannonBallFireTime, nextId ) =
             case model.fireCannon of
                 Pressed ->
                     if model.elapsedTime - model.lastCannonFiredAt > 100 then
-                        case
-                            Physics.World.bodies model.physicsWorld
-                                |> findInList
-                                    (\body ->
-                                        let
-                                            data =
-                                                Physics.Body.data body
-                                        in
-                                        case data of
-                                            ETank id tankData ->
-                                                if id == model.playerId then
-                                                    Just ( body, tankData )
-
-                                                else
-                                                    Nothing
-
-                                            _ ->
-                                                Nothing
-                                    )
-                        of
+                        case maybePlayerTank of
                             Nothing ->
                                 ( model.physicsWorld, model.lastCannonFiredAt, model.nextId )
 
@@ -380,6 +394,62 @@ applyTick deltaMs model =
                                             _ ->
                                                 0.0
                                         )
+
+                            EBunker bunker ->
+                                case maybePlayerTank of
+                                    Nothing ->
+                                        body
+
+                                    Just ( playerTankBody, _ ) ->
+                                        let
+                                            targetPoint =
+                                                Physics.Body.frame playerTankBody
+                                                    |> Frame3d.originPoint
+                                                    |> Point3d.projectInto SketchPlane3d.xy
+
+                                            bunkerPoint =
+                                                Physics.Body.frame body
+                                                    |> Frame3d.originPoint
+                                                    |> Point3d.projectInto SketchPlane3d.xy
+                                        in
+                                        case Direction2d.from bunkerPoint targetPoint of
+                                            Nothing ->
+                                                body
+
+                                            Just dirToTarget ->
+                                                let
+                                                    normalizedTargetAngle : Angle
+                                                    normalizedTargetAngle =
+                                                        Angle.normalize (Direction2d.toAngle dirToTarget)
+
+                                                    normalizedCannonAngle : Angle
+                                                    normalizedCannonAngle =
+                                                        Angle.normalize bunker.cannonRotation
+
+                                                    angleDifference : Angle
+                                                    angleDifference =
+                                                        Quantity.difference normalizedTargetAngle normalizedCannonAngle
+
+                                                    maxToRotate : Angle
+                                                    maxToRotate =
+                                                        Angle.atan2 (Angle.radians (Angle.sin angleDifference)) (Angle.radians (Angle.cos angleDifference))
+
+                                                    toRotate : Angle
+                                                    toRotate =
+                                                        if Angle.inDegrees maxToRotate < 0 then
+                                                            Quantity.max (Angle.degrees -0.5) maxToRotate
+
+                                                        else
+                                                            Quantity.min (Angle.degrees 0.5) maxToRotate
+                                                in
+                                                Physics.Body.withData
+                                                    (EBunker
+                                                        { bunker
+                                                            | cannonRotation =
+                                                                Quantity.plus normalizedCannonAngle toRotate
+                                                        }
+                                                    )
+                                                    body
 
                             _ ->
                                 body
