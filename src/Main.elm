@@ -20,7 +20,7 @@ import LineSegment3d
 import Mass
 import Physics.Body exposing (Body)
 import Physics.Contact
-import Physics.Coordinates exposing (WorldCoordinates)
+import Physics.Coordinates exposing (BodyCoordinates, WorldCoordinates)
 import Physics.World exposing (World)
 import Pixels
 import Point3d exposing (Point3d)
@@ -46,7 +46,7 @@ type alias Model =
     { elapsedTime : Float
     , nextId : Int
     , tank : Tank
-    , enemies : List Tank
+    , playerId : Int
     , forwardKey : KeyPressesd
     , backwardKey : KeyPressesd
     , rotateClockwiseKey : KeyPressesd
@@ -71,6 +71,7 @@ type EntityType
     = Ground
     | CannonBall
     | WallPermanent (Block3d Meters WorldCoordinates)
+    | ETank Tank
 
 
 type KeyPressesd
@@ -79,24 +80,22 @@ type KeyPressesd
 
 
 type alias Tank =
-    { forward : Angle
-    , position : Point3d Meters WorldCoordinates
-    , cannonRotation : Angle
+    { cannonRotation : Angle
     , cannonPitch : Angle
+    , material : Scene3d.Material.Uniform WorldCoordinates
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init () =
     ( { elapsedTime = 0
-      , nextId = 2
+      , nextId = 6
       , tank =
-            { forward = Angle.degrees 0
-            , position = Point3d.origin
-            , cannonRotation = Angle.degrees 0
+            { cannonRotation = Angle.degrees 0
             , cannonPitch = Angle.degrees 0
+            , material = Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
             }
-      , enemies = []
+      , playerId = 5
       , forwardKey = Unpressed
       , backwardKey = Unpressed
       , rotateClockwiseKey = Unpressed
@@ -134,7 +133,7 @@ init () =
                      in
                      Physics.Body.block
                         block
-                        { id = 1
+                        { id = 2
                         , type_ = WallPermanent block
                         }
                     )
@@ -145,7 +144,7 @@ init () =
                      in
                      Physics.Body.block
                         block
-                        { id = 1
+                        { id = 3
                         , type_ = WallPermanent block
                         }
                     )
@@ -156,9 +155,27 @@ init () =
                      in
                      Physics.Body.block
                         block
-                        { id = 1
+                        { id = 4
                         , type_ = WallPermanent block
                         }
+                    )
+                |> Physics.World.add
+                    (Physics.Body.block
+                        (Block3d.centeredOn Frame3d.atOrigin
+                            ( Length.meters 2.0
+                            , Length.meters 1.0
+                            , Length.meters 0.5
+                            )
+                        )
+                        { id = 5
+                        , type_ =
+                            ETank
+                                { cannonRotation = Angle.degrees 0
+                                , cannonPitch = Angle.degrees 0
+                                , material = Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
+                                }
+                        }
+                        |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 1000))
                     )
       }
     , Cmd.none
@@ -199,38 +216,62 @@ applyTick deltaMs model =
             case model.fireCannon of
                 Pressed ->
                     if model.elapsedTime - model.lastCannonFiredAt > 500 then
-                        ( model.physicsWorld
-                            |> Physics.World.add
-                                (let
-                                    position =
-                                        Point3d.origin
-                                            |> Point3d.translateIn Direction3d.positiveX (Length.meters 1.5)
-                                            |> Point3d.rotateAround Axis3d.y model.tank.cannonPitch
-                                            |> Point3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
-                                            |> Point3d.translateBy (Vector3d.from Point3d.origin model.tank.position)
-                                            |> Point3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
-                                 in
-                                 Physics.Body.sphere (Sphere3d.atPoint Point3d.origin (Length.meters 0.25))
-                                    { id = model.nextId
-                                    , type_ = CannonBall
-                                    }
-                                    |> Physics.Body.moveTo position
-                                    |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 5.5))
-                                    |> Physics.Body.applyImpulse
-                                        (Force.newtons 150 |> Quantity.times (Duration.seconds 0.5))
-                                        (Maybe.withDefault Direction3d.x
-                                            (Vector3d.direction
-                                                (Vector3d.meters 0.1 0 0
-                                                    |> Vector3d.rotateAround Axis3d.y model.tank.cannonPitch
-                                                    |> Vector3d.rotateAround Axis3d.z (Quantity.plus model.tank.forward model.tank.cannonRotation)
-                                                )
-                                            )
-                                        )
-                                        position
+                        case
+                            Physics.World.bodies model.physicsWorld
+                                |> findInList
+                                    (\body ->
+                                        let
+                                            data =
+                                                Physics.Body.data body
+                                        in
+                                        if data.id == model.playerId then
+                                            case data.type_ of
+                                                ETank tankData ->
+                                                    Just ( body, tankData )
+
+                                                _ ->
+                                                    Nothing
+
+                                        else
+                                            Nothing
+                                    )
+                        of
+                            Nothing ->
+                                ( model.physicsWorld, model.lastCannonFiredAt, model.nextId )
+
+                            Just ( playerTankBody, playerTankData ) ->
+                                ( Physics.World.add
+                                    (let
+                                        position : Frame3d.Frame3d Meters WorldCoordinates { defines : Physics.Coordinates.BodyCoordinates }
+                                        position =
+                                            Physics.Body.frame playerTankBody
+                                                |> Frame3d.translateAlongOwn (\_ -> Axis3d.z) (Length.meters 0.5)
+                                                |> Frame3d.translateAlongOwn (\_ -> Axis3d.x) (Length.meters 1.5)
+                                                |> Frame3d.rotateAround Axis3d.y playerTankData.cannonPitch
+                                                |> Frame3d.rotateAround Axis3d.z playerTankData.cannonRotation
+
+                                        cannonBallBody : Body Entity
+                                        cannonBallBody =
+                                            Physics.Body.sphere
+                                                (Sphere3d.atPoint Point3d.origin (Length.meters 0.25))
+                                                { id = model.nextId
+                                                , type_ = CannonBall
+                                                }
+                                                |> Physics.Body.moveTo (Frame3d.originPoint position)
+                                                -- |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 5.5))
+                                                |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.grams 5))
+                                     in
+                                     cannonBallBody
+                                        |> Physics.Body.applyImpulse
+                                            -- (Force.newtons 150 |> Quantity.times (Duration.seconds 0.5))
+                                            (Force.newtons 0.1 |> Quantity.times (Duration.seconds 0.5))
+                                            (Frame3d.xDirection position)
+                                            (Physics.Body.originPoint cannonBallBody)
+                                    )
+                                    model.physicsWorld
+                                , model.elapsedTime
+                                , model.nextId + 1
                                 )
-                        , model.elapsedTime
-                        , model.nextId + 1
-                        )
 
                     else
                         ( model.physicsWorld, model.lastCannonFiredAt, model.nextId )
@@ -241,6 +282,66 @@ applyTick deltaMs model =
         simulatedWorld =
             cannonBallMaybeAdded
                 |> Physics.World.simulate (Duration.milliseconds deltaMs)
+                |> Physics.World.update
+                    (\body ->
+                        case (Physics.Body.data body).type_ of
+                            ETank tank ->
+                                Physics.Body.withData
+                                    { id = (Physics.Body.data body).id
+                                    , type_ =
+                                        ETank
+                                            (tank
+                                                |> rotateCannon
+                                                    (case ( model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey ) of
+                                                        ( Pressed, Unpressed ) ->
+                                                            1.0
+
+                                                        ( Unpressed, Pressed ) ->
+                                                            -1.0
+
+                                                        _ ->
+                                                            0.0
+                                                    )
+                                                |> aimCannon
+                                                    (case ( model.aimCannonUp, model.aimCannonDown ) of
+                                                        ( Pressed, Unpressed ) ->
+                                                            1.0
+
+                                                        ( Unpressed, Pressed ) ->
+                                                            -1.0
+
+                                                        _ ->
+                                                            0.0
+                                                    )
+                                            )
+                                    }
+                                    body
+                                    |> moveTank
+                                        (case ( model.forwardKey, model.backwardKey ) of
+                                            ( Pressed, Unpressed ) ->
+                                                1.0
+
+                                            ( Unpressed, Pressed ) ->
+                                                -1.0
+
+                                            _ ->
+                                                0.0
+                                        )
+                                    |> rotateTank
+                                        (case ( model.rotateClockwiseKey, model.rotateCounterClockwiseKey ) of
+                                            ( Pressed, Unpressed ) ->
+                                                1.0
+
+                                            ( Unpressed, Pressed ) ->
+                                                -1.0
+
+                                            _ ->
+                                                0.0
+                                        )
+
+                            _ ->
+                                body
+                    )
 
         contacts =
             Physics.World.contacts simulatedWorld
@@ -260,56 +361,28 @@ applyTick deltaMs model =
                             WallPermanent _ ->
                                 True
 
+                            ETank _ ->
+                                True
+
                             _ ->
                                 not (isInContact body contacts)
                     )
-        , tank =
-            model.tank
-                |> moveTank
-                    (case ( model.forwardKey, model.backwardKey ) of
-                        ( Pressed, Unpressed ) ->
-                            1.0
-
-                        ( Unpressed, Pressed ) ->
-                            -1.0
-
-                        _ ->
-                            0.0
-                    )
-                |> rotateTank
-                    (case ( model.rotateClockwiseKey, model.rotateCounterClockwiseKey ) of
-                        ( Pressed, Unpressed ) ->
-                            1.0
-
-                        ( Unpressed, Pressed ) ->
-                            -1.0
-
-                        _ ->
-                            0.0
-                    )
-                |> rotateCannon
-                    (case ( model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey ) of
-                        ( Pressed, Unpressed ) ->
-                            1.0
-
-                        ( Unpressed, Pressed ) ->
-                            -1.0
-
-                        _ ->
-                            0.0
-                    )
-                |> aimCannon
-                    (case ( model.aimCannonUp, model.aimCannonDown ) of
-                        ( Pressed, Unpressed ) ->
-                            1.0
-
-                        ( Unpressed, Pressed ) ->
-                            -1.0
-
-                        _ ->
-                            0.0
-                    )
     }
+
+
+findInList : (a -> Maybe b) -> List a -> Maybe b
+findInList predicate list =
+    case list of
+        [] ->
+            Nothing
+
+        next :: rest ->
+            case predicate next of
+                Just b ->
+                    Just b
+
+                Nothing ->
+                    findInList predicate rest
 
 
 isInContact : Body { id : Int, type_ : EntityType } -> List (Physics.Contact.Contact { id : Int, type_ : EntityType }) -> Bool
@@ -399,24 +472,22 @@ update msg model =
                     ( { model | fireCannon = Unpressed }, Cmd.none )
 
 
-moveTank : Float -> Tank -> Tank
-moveTank magnitude tank =
-    { tank
-        | position =
-            Point3d.translateBy
-                (Vector3d.meters (magnitude * 0.05) 0.0 0.0
-                    |> Vector3d.rotateAround Axis3d.z tank.forward
-                )
-                tank.position
-    }
+moveTank : Float -> Body Entity -> Body Entity
+moveTank magnitude body =
+    Physics.Body.translateBy
+        (Vector3d.placeIn
+            (Physics.Body.frame body)
+            (Vector3d.meters (magnitude * 0.05) 0.0 0.0)
+        )
+        body
 
 
-rotateTank : Float -> Tank -> Tank
-rotateTank magnitude tank =
-    { tank
-        | forward =
-            Quantity.plus tank.forward (Angle.degrees (magnitude * 1.0))
-    }
+rotateTank : Float -> Body Entity -> Body Entity
+rotateTank magnitude body =
+    Physics.Body.rotateAround
+        (Frame3d.zAxis (Physics.Body.frame body))
+        (Angle.degrees (magnitude * 1.0))
+        body
 
 
 rotateCannon : Float -> Tank -> Tank
@@ -492,7 +563,7 @@ game3dScene model =
                 { viewpoint =
                     Viewpoint3d.lookAt
                         { focalPoint = Point3d.origin
-                        , eyePoint = Point3d.meters 30 20 30
+                        , eyePoint = Point3d.meters 0 20 20
                         , upDirection = Direction3d.positiveZ
                         }
                 , verticalFieldOfView = Angle.degrees 30
@@ -525,28 +596,21 @@ game3dScene model =
                 --     (LineSegment3d.along Axis3d.x (Length.meters 0) (Length.meters 10))
                 -- :: Scene3d.lineSegment (Scene3d.Material.color Color.lightGreen)
                 --     (LineSegment3d.along Axis3d.y (Length.meters 0) (Length.meters 10))
-                :: viewTank (Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }) model.tank
                 :: List.map viewEntity (Physics.World.bodies model.physicsWorld)
         , shadows = True
-
-        -- Specify the global up direction (this controls the orientation of
-        -- the sky light)
         , upDirection = Direction3d.positiveZ
-
-        -- Specify the direction of incoming sunlight (note that this is the
-        -- opposite of the direction *to* the sun)
         , sunlightDirection = Direction3d.yz (Angle.degrees -120)
         }
 
 
 viewEntity : Body Entity -> Scene3d.Entity WorldCoordinates
-viewEntity entity =
-    case (Physics.Body.data entity).type_ of
+viewEntity body =
+    case (Physics.Body.data body).type_ of
         CannonBall ->
             Scene3d.sphereWithShadow
                 (Scene3d.Material.metal { baseColor = Color.black, roughness = 0.5 })
                 (Sphere3d.atPoint Point3d.origin (Length.meters 0.25)
-                    |> Sphere3d.placeIn (Physics.Body.frame entity)
+                    |> Sphere3d.placeIn (Physics.Body.frame body)
                 )
 
         Ground ->
@@ -557,36 +621,25 @@ viewEntity entity =
                 (Scene3d.Material.metal { baseColor = Color.gray, roughness = 0.5 })
                 block
 
+        ETank tank ->
+            viewTank body tank
 
-viewTank : Scene3d.Material.Uniform WorldCoordinates -> Tank -> Scene3d.Entity WorldCoordinates
-viewTank material tank =
+
+viewTank : Body Entity -> Tank -> Scene3d.Entity WorldCoordinates
+viewTank body tank =
     let
-        bodyPosition : Frame3d.Frame3d Meters WorldCoordinates defines2
+        bodyPosition : Frame3d.Frame3d Meters WorldCoordinates { defines : Physics.Coordinates.BodyCoordinates }
         bodyPosition =
-            Frame3d.atPoint Point3d.origin
-                |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) tank.forward
-                |> Frame3d.translateBy (Vector3d.from Point3d.origin tank.position)
-                |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.25)
+            Physics.Body.frame body
 
         topPosition : Frame3d.Frame3d Meters WorldCoordinates defines2
         topPosition =
-            Frame3d.atPoint Point3d.origin
-                |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) (Quantity.plus tank.forward tank.cannonRotation)
-                |> Frame3d.translateBy (Vector3d.from Point3d.origin tank.position)
-                |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
-
-        cannonPosition : Frame3d.Frame3d Meters WorldCoordinates defines2
-        cannonPosition =
-            Frame3d.atPoint Point3d.origin
-                |> Frame3d.translateIn Direction3d.positiveX (Length.meters 0.5)
-                |> Frame3d.rotateAroundOwn (\_ -> Axis3d.y) tank.cannonPitch
-                |> Frame3d.rotateAroundOwn (\_ -> Axis3d.z) (Quantity.plus tank.forward tank.cannonRotation)
-                |> Frame3d.translateBy (Vector3d.from Point3d.origin tank.position)
-                |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.5)
+            bodyPosition
+                |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.25)
     in
     Scene3d.group
         [ Scene3d.blockWithShadow
-            material
+            tank.material
             (Block3d.centeredOn bodyPosition
                 ( Length.meters 2.0
                 , Length.meters 1.0
@@ -594,7 +647,7 @@ viewTank material tank =
                 )
             )
         , Scene3d.cylinderWithShadow
-            material
+            tank.material
             (Cylinder3d.startingAt
                 Point3d.origin
                 Direction3d.positiveZ
@@ -604,13 +657,15 @@ viewTank material tank =
                 |> Cylinder3d.placeIn topPosition
             )
         , Scene3d.cylinderWithShadow
-            material
+            tank.material
             (Cylinder3d.startingAt
-                Point3d.origin
+                (Point3d.meters 0.5 0.0 0.125)
                 Direction3d.positiveX
                 { radius = Length.meters 0.125
                 , length = Length.meters 1.0
                 }
-                |> Cylinder3d.placeIn cannonPosition
+                |> Cylinder3d.rotateAround Axis3d.y tank.cannonPitch
+                |> Cylinder3d.rotateAround Axis3d.z tank.cannonRotation
+                |> Cylinder3d.placeIn topPosition
             )
         ]

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "dev": "elm-live src/Main.elm -- --debug"
+    "dev": "elm-live src/Main.elm"
   },
   "author": "Wolfgang Schuster",
   "volta": {
