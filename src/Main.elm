@@ -14,7 +14,10 @@ import Direction2d
 import Direction3d
 import Duration
 import Element exposing (..)
+import Element.Background as Background
+import Element.Border as Border
 import Element.Font as Font
+import Element.Input as Input
 import Force
 import Frame3d
 import Html exposing (Html)
@@ -49,6 +52,7 @@ main =
 
 type alias Model =
     { elapsedTime : Float
+    , showControls : Visibility
     , windowSize : { width : Int, height : Int }
     , windowVisible : Visibility
     , nextId : Int
@@ -97,6 +101,7 @@ type alias Bunker =
 init : () -> ( Model, Cmd Msg )
 init () =
     ( { elapsedTime = 0
+      , showControls = Hidden
       , windowSize = { width = 800, height = 600 }
       , windowVisible = Visible
       , nextId = 1
@@ -255,6 +260,7 @@ type Msg
     | KeyUp Value
     | WindowResize Int Int
     | WindowVisibilityChange Visibility
+    | ToggleControls
 
 
 type GameAction
@@ -540,6 +546,19 @@ update msg model =
             , Cmd.none
             )
 
+        ToggleControls ->
+            ( { model
+                | showControls =
+                    case model.showControls of
+                        Visible ->
+                            Hidden
+
+                        Hidden ->
+                            Visible
+              }
+            , Cmd.none
+            )
+
         WindowVisibilityChange visible ->
             ( { model | windowVisible = visible }, Cmd.none )
 
@@ -690,8 +709,7 @@ view : Model -> Document Msg
 view model =
     { title = "Tanks"
     , body =
-        [ game3dScene model
-        , viewControls
+        [ viewControls model
         ]
     }
 
@@ -879,23 +897,46 @@ viewTank body tank =
         ]
 
 
-viewControls : Html Msg
-viewControls =
+viewControls : Model -> Html Msg
+viewControls model =
     layout
-        [ padding 16
-        , Font.family [ Font.monospace ]
+        [ Font.family [ Font.monospace ]
         ]
-        (column
-            []
-            [ el [ Font.underline ] (text "Controls:")
-            , text "Drive Forward ------------ W"
-            , text "Drive Backward ----------- S"
-            , text "Turn Clockwise ----------- D"
-            , text "Turn Counter-Clockwise --- A"
-            , text "Cannon Clockwise --------- E"
-            , text "Cannon Counter-Clockwise - Q"
-            , text "Pitch Cannon Up ---------- R"
-            , text "Pitch Cannon Down -------- F"
-            , text "Fire Cannon -------------- Space"
+        (el
+            [ inFront <|
+                column
+                    []
+                    [ Input.button
+                        [ Background.color (rgb 1 1 1)
+                        , paddingXY 16 8
+                        ]
+                        { onPress = Just ToggleControls
+                        , label = text "Controls"
+                        }
+                    , case model.showControls of
+                        Visible ->
+                            column
+                                [ Background.color (rgb 1 1 1)
+                                , paddingXY 16 8
+                                , Border.rounded 8
+                                , moveRight 4
+                                , moveDown 4
+                                ]
+                                [ el [ Font.underline ] (text "Controls:")
+                                , text "Drive Forward ------------ W"
+                                , text "Drive Backward ----------- S"
+                                , text "Turn Clockwise ----------- D"
+                                , text "Turn Counter-Clockwise --- A"
+                                , text "Cannon Clockwise --------- E"
+                                , text "Cannon Counter-Clockwise - Q"
+                                , text "Pitch Cannon Up ---------- R"
+                                , text "Pitch Cannon Down -------- F"
+                                , text "Fire Cannon -------------- Space"
+                                ]
+
+                        Hidden ->
+                            none
+                    ]
             ]
+            (html (game3dScene model))
         )
