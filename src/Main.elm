@@ -29,7 +29,7 @@ import Pixels
 import Point3d exposing (Point3d)
 import Quantity
 import Scene3d
-import Scene3d.Material
+import Scene3d.Material exposing (Textured)
 import Sphere3d
 import Task
 import Vector3d
@@ -69,9 +69,10 @@ type alias Model =
 
 type Entity
     = Ground
-    | CannonBall Int
+    | CannonBall
     | WallPermanent (Block3d Meters WorldCoordinates)
     | ETank Int Tank
+    | EBunker Bunker
 
 
 type KeyPressesd
@@ -83,6 +84,12 @@ type alias Tank =
     { cannonRotation : Angle
     , cannonPitch : Angle
     , material : Scene3d.Material.Uniform WorldCoordinates
+    }
+
+
+type alias Bunker =
+    { cannonRotation : Angle
+    , cannonPitch : Angle
     }
 
 
@@ -194,6 +201,17 @@ init () =
                         )
                         |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 1000))
                     )
+                |> Physics.World.add
+                    (Physics.Body.sphere
+                        (Sphere3d.atPoint Point3d.origin (Length.meters 1.0))
+                        (EBunker
+                            { cannonRotation = Angle.degrees 0
+                            , cannonPitch = Angle.degrees 0
+                            }
+                        )
+                        |> Physics.Body.moveTo (Point3d.meters 15 0 0)
+                        |> Physics.Body.withBehavior Physics.Body.static
+                    )
       }
     , Browser.Dom.getViewport
         |> Task.perform
@@ -284,7 +302,7 @@ applyTick deltaMs model =
                                         cannonBallBody =
                                             Physics.Body.sphere
                                                 (Sphere3d.atPoint Point3d.origin (Length.meters 0.25))
-                                                (CannonBall model.nextId)
+                                                CannonBall
                                                 |> Physics.Body.moveTo (Frame3d.originPoint position)
                                                 |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 5.5))
                                      in
@@ -296,7 +314,7 @@ applyTick deltaMs model =
                                     )
                                     model.physicsWorld
                                 , model.elapsedTime
-                                , model.nextId + 1
+                                , model.nextId
                                 )
 
                     else
@@ -669,7 +687,7 @@ game3dScene model =
 viewEntity : Body Entity -> Scene3d.Entity WorldCoordinates
 viewEntity body =
     case Physics.Body.data body of
-        CannonBall _ ->
+        CannonBall ->
             Scene3d.sphereWithShadow
                 (Scene3d.Material.metal { baseColor = Color.black, roughness = 0.5 })
                 (Sphere3d.atPoint Point3d.origin (Length.meters 0.25)
@@ -686,6 +704,43 @@ viewEntity body =
 
         ETank _ tank ->
             viewTank body tank
+
+        EBunker bunker ->
+            viewBunker body bunker
+
+
+viewBunker : Body Entity -> Bunker -> Scene3d.Entity WorldCoordinates
+viewBunker body bunker =
+    let
+        bodyPosition : Frame3d.Frame3d Meters WorldCoordinates { defines : Physics.Coordinates.BodyCoordinates }
+        bodyPosition =
+            Physics.Body.frame body
+
+        topPosition : Frame3d.Frame3d Meters WorldCoordinates defines2
+        topPosition =
+            bodyPosition
+                |> Frame3d.translateIn Direction3d.positiveZ (Length.meters 0.25)
+
+        material =
+            Scene3d.Material.metal { baseColor = Color.lightRed, roughness = 0.9 }
+    in
+    Scene3d.group
+        [ Scene3d.sphereWithShadow
+            material
+            (Sphere3d.atPoint (Frame3d.originPoint bodyPosition) (Length.meters 1.0))
+        , Scene3d.cylinderWithShadow
+            material
+            (Cylinder3d.startingAt
+                (Point3d.meters 0.5 0.0 0.125)
+                Direction3d.positiveX
+                { radius = Length.meters 0.125
+                , length = Length.meters 1.0
+                }
+                |> Cylinder3d.rotateAround Axis3d.y bunker.cannonPitch
+                |> Cylinder3d.rotateAround Axis3d.z bunker.cannonRotation
+                |> Cylinder3d.placeIn topPosition
+            )
+        ]
 
 
 viewTank : Body Entity -> Tank -> Scene3d.Entity WorldCoordinates
@@ -737,9 +792,7 @@ viewTank body tank =
 viewControls : Html Msg
 viewControls =
     layout
-        [ width fill
-        , height fill
-        , padding 16
+        [ padding 16
         , Font.family [ Font.monospace ]
         ]
         (column
