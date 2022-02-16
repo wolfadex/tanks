@@ -8347,8 +8347,8 @@ var $author$project$Main$init = function (_v0) {
 								$ianmackenzie$elm_units$Length$meters(1.0)),
 							$author$project$Main$EBunker(
 								{
-									cannonPitch: $ianmackenzie$elm_units$Angle$degrees(0),
-									cannonRotation: $ianmackenzie$elm_units$Angle$degrees(0)
+									cannonRotation: $ianmackenzie$elm_units$Angle$degrees(0),
+									lastCannonFiredAt: 0
 								})))),
 				A2(
 					$w0rm$elm_physics$Physics$World$add,
@@ -8366,8 +8366,8 @@ var $author$project$Main$init = function (_v0) {
 									$ianmackenzie$elm_units$Length$meters(1.0)),
 								$author$project$Main$EBunker(
 									{
-										cannonPitch: $ianmackenzie$elm_units$Angle$degrees(0),
-										cannonRotation: $ianmackenzie$elm_units$Angle$degrees(0)
+										cannonRotation: $ianmackenzie$elm_units$Angle$degrees(0),
+										lastCannonFiredAt: 0
 									})))),
 					A2(
 						$w0rm$elm_physics$Physics$World$add,
@@ -9454,6 +9454,32 @@ var $ianmackenzie$elm_geometry$Direction2d$from = F2(
 		return $ianmackenzie$elm_geometry$Vector2d$direction(
 			A2($ianmackenzie$elm_geometry$Vector2d$from, firstPoint, secondPoint));
 	});
+var $ianmackenzie$elm_geometry$Direction3d$from = F2(
+	function (_v0, _v1) {
+		var p1 = _v0.a;
+		var p2 = _v1.a;
+		var deltaZ = p2.z - p1.z;
+		var deltaY = p2.y - p1.y;
+		var deltaX = p2.x - p1.x;
+		var largestComponent = A2(
+			$elm$core$Basics$max,
+			$elm$core$Basics$abs(deltaX),
+			A2(
+				$elm$core$Basics$max,
+				$elm$core$Basics$abs(deltaY),
+				$elm$core$Basics$abs(deltaZ)));
+		if (!largestComponent) {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			var scaledZ = deltaZ / largestComponent;
+			var scaledY = deltaY / largestComponent;
+			var scaledX = deltaX / largestComponent;
+			var scaledLength = $elm$core$Basics$sqrt(((scaledX * scaledX) + (scaledY * scaledY)) + (scaledZ * scaledZ));
+			return $elm$core$Maybe$Just(
+				$ianmackenzie$elm_geometry$Geometry$Types$Direction3d(
+					{x: scaledX / scaledLength, y: scaledY / scaledLength, z: scaledZ / scaledLength}));
+		}
+	});
 var $ianmackenzie$elm_units$Angle$inRadians = function (_v0) {
 	var numRadians = _v0.a;
 	return numRadians;
@@ -9685,6 +9711,266 @@ var $ianmackenzie$elm_geometry$Point3d$projectInto = F2(
 		return $ianmackenzie$elm_geometry$Geometry$Types$Point2d(
 			{x: ((deltaX * i.x) + (deltaY * i.y)) + (deltaZ * i.z), y: ((deltaX * j.x) + (deltaY * j.y)) + (deltaZ * j.z)});
 	});
+var $ianmackenzie$elm_geometry$Axis3d$direction = function (_v0) {
+	var axis = _v0.a;
+	return axis.direction;
+};
+var $w0rm$elm_physics$Internal$Transform3d$directionRelativeTo = F2(
+	function (_v0, worldVector) {
+		var localOrientation = _v0.b;
+		return A2($w0rm$elm_physics$Internal$Transform3d$derotate, localOrientation, worldVector);
+	});
+var $ianmackenzie$elm_geometry$Axis3d$originPoint = function (_v0) {
+	var axis = _v0.a;
+	return axis.originPoint;
+};
+var $w0rm$elm_physics$Internal$Vector3$dot = F2(
+	function (a, b) {
+		return ((a.x * b.x) + (a.y * b.y)) + (a.z * b.z);
+	});
+var $w0rm$elm_physics$Shapes$Convex$foldFaceEdgesHelp = F4(
+	function (fn, seed, resultSeed, vertices) {
+		foldFaceEdgesHelp:
+		while (true) {
+			if (vertices.b) {
+				var el1 = vertices.a;
+				var rest1 = vertices.b;
+				if (!rest1.b) {
+					return A3(fn, el1, seed, resultSeed);
+				} else {
+					var el2 = rest1.a;
+					var $temp$fn = fn,
+						$temp$seed = seed,
+						$temp$resultSeed = A3(fn, el1, el2, resultSeed),
+						$temp$vertices = rest1;
+					fn = $temp$fn;
+					seed = $temp$seed;
+					resultSeed = $temp$resultSeed;
+					vertices = $temp$vertices;
+					continue foldFaceEdgesHelp;
+				}
+			} else {
+				return resultSeed;
+			}
+		}
+	});
+var $w0rm$elm_physics$Shapes$Convex$foldFaceEdges = F3(
+	function (fn, resultSeed, vertices) {
+		if (vertices.b && vertices.b.b) {
+			var first = vertices.a;
+			var _v1 = vertices.b;
+			return A4($w0rm$elm_physics$Shapes$Convex$foldFaceEdgesHelp, fn, first, resultSeed, vertices);
+		} else {
+			return resultSeed;
+		}
+	});
+var $w0rm$elm_physics$Shapes$Convex$raycast = F2(
+	function (_v0, convex) {
+		var direction = _v0.direction;
+		var from = _v0.from;
+		return A3(
+			$elm$core$List$foldl,
+			F2(
+				function (_v1, maybeHit) {
+					var normal = _v1.normal;
+					var vertices = _v1.vertices;
+					var point = function () {
+						if (vertices.b) {
+							var first = vertices.a;
+							return first;
+						} else {
+							return $w0rm$elm_physics$Internal$Vector3$zero;
+						}
+					}();
+					var dot = A2($w0rm$elm_physics$Internal$Vector3$dot, direction, normal);
+					if (dot < 0) {
+						var pointToFrom = A2($w0rm$elm_physics$Internal$Vector3$sub, point, from);
+						var scalar = A2($w0rm$elm_physics$Internal$Vector3$dot, normal, pointToFrom) / dot;
+						if (scalar >= 0) {
+							var intersectionPoint = {x: (direction.x * scalar) + from.x, y: (direction.y * scalar) + from.y, z: (direction.z * scalar) + from.z};
+							var isInsidePolygon = A3(
+								$w0rm$elm_physics$Shapes$Convex$foldFaceEdges,
+								F3(
+									function (p1, p2, result) {
+										return result && (A2(
+											$w0rm$elm_physics$Internal$Vector3$dot,
+											A2($w0rm$elm_physics$Internal$Vector3$sub, intersectionPoint, p1),
+											A2(
+												$w0rm$elm_physics$Internal$Vector3$cross,
+												normal,
+												A2($w0rm$elm_physics$Internal$Vector3$sub, p2, p1))) > 0);
+									}),
+								true,
+								vertices);
+							if (isInsidePolygon) {
+								if (maybeHit.$ === 'Just') {
+									var distance = maybeHit.a.distance;
+									return ((scalar - distance) < 0) ? $elm$core$Maybe$Just(
+										{distance: scalar, normal: normal, point: intersectionPoint}) : maybeHit;
+								} else {
+									return $elm$core$Maybe$Just(
+										{distance: scalar, normal: normal, point: intersectionPoint});
+								}
+							} else {
+								return maybeHit;
+							}
+						} else {
+							return maybeHit;
+						}
+					} else {
+						return maybeHit;
+					}
+				}),
+			$elm$core$Maybe$Nothing,
+			convex.faces);
+	});
+var $w0rm$elm_physics$Shapes$Plane$raycast = F2(
+	function (_v0, _v1) {
+		var from = _v0.from;
+		var direction = _v0.direction;
+		var normal = _v1.normal;
+		var position = _v1.position;
+		var dot = A2($w0rm$elm_physics$Internal$Vector3$dot, direction, normal);
+		if (dot < 0) {
+			var pointToFrom = A2($w0rm$elm_physics$Internal$Vector3$sub, position, from);
+			var scalar = A2($w0rm$elm_physics$Internal$Vector3$dot, normal, pointToFrom) / dot;
+			return (scalar >= 0) ? $elm$core$Maybe$Just(
+				{
+					distance: scalar,
+					normal: normal,
+					point: {x: (direction.x * scalar) + from.x, y: (direction.y * scalar) + from.y, z: (direction.z * scalar) + from.z}
+				}) : $elm$core$Maybe$Nothing;
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $w0rm$elm_physics$Shapes$Sphere$raycast = F2(
+	function (_v0, _v1) {
+		var from = _v0.from;
+		var direction = _v0.direction;
+		var position = _v1.position;
+		var radius = _v1.radius;
+		var c = ((((from.x - position.x) * (from.x - position.x)) + ((from.y - position.y) * (from.y - position.y))) + ((from.z - position.z) * (from.z - position.z))) - (radius * radius);
+		var b = 2 * (((direction.x * (from.x - position.x)) + (direction.y * (from.y - position.y))) + (direction.z * (from.z - position.z)));
+		var a = ((direction.x * direction.x) + (direction.y * direction.y)) + (direction.z * direction.z);
+		var delta = (b * b) - ((4 * a) * c);
+		if (delta < 0) {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			var distance = ((-b) - $elm$core$Basics$sqrt(delta)) / (2 * a);
+			if (distance >= 0) {
+				var point = {x: from.x + (direction.x * distance), y: from.y + (direction.y * distance), z: from.z + (direction.z * distance)};
+				var normal = A2($w0rm$elm_physics$Internal$Vector3$sub, point, position);
+				return $elm$core$Maybe$Just(
+					{distance: distance, normal: normal, point: point});
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		}
+	});
+var $w0rm$elm_physics$Internal$Shape$raycast = F2(
+	function (ray, shape) {
+		switch (shape.$) {
+			case 'Plane':
+				var plane = shape.a;
+				return A2($w0rm$elm_physics$Shapes$Plane$raycast, ray, plane);
+			case 'Sphere':
+				var sphere = shape.a;
+				return A2($w0rm$elm_physics$Shapes$Sphere$raycast, ray, sphere);
+			case 'Convex':
+				var convex = shape.a;
+				return A2($w0rm$elm_physics$Shapes$Convex$raycast, ray, convex);
+			default:
+				return $elm$core$Maybe$Nothing;
+		}
+	});
+var $w0rm$elm_physics$Internal$Body$raycast = F2(
+	function (ray, body) {
+		return A3(
+			$elm$core$List$foldl,
+			F2(
+				function (shape, maybeClosestRaycastResult) {
+					var _v0 = A2($w0rm$elm_physics$Internal$Shape$raycast, ray, shape);
+					if (_v0.$ === 'Just') {
+						var raycastResult = _v0.a;
+						if (maybeClosestRaycastResult.$ === 'Just') {
+							var closestRaycastResult = maybeClosestRaycastResult.a;
+							return ((raycastResult.distance - closestRaycastResult.distance) < 0) ? $elm$core$Maybe$Just(raycastResult) : maybeClosestRaycastResult;
+						} else {
+							return $elm$core$Maybe$Just(raycastResult);
+						}
+					} else {
+						return maybeClosestRaycastResult;
+					}
+				}),
+			$elm$core$Maybe$Nothing,
+			body.worldShapes);
+	});
+var $w0rm$elm_physics$Internal$World$raycast = F2(
+	function (ray, _v0) {
+		var bodies = _v0.bodies;
+		return A3(
+			$elm$core$List$foldl,
+			F2(
+				function (body, maybeClosestRaycastResult) {
+					var _v1 = A2($w0rm$elm_physics$Internal$Body$raycast, ray, body);
+					if (_v1.$ === 'Just') {
+						var raycastResult = _v1.a;
+						if (maybeClosestRaycastResult.$ === 'Just') {
+							var closestRaycastResult = maybeClosestRaycastResult.a;
+							return ((raycastResult.distance - closestRaycastResult.distance) < 0) ? $elm$core$Maybe$Just(
+								{body: body, distance: raycastResult.distance, normal: raycastResult.normal, point: raycastResult.point}) : maybeClosestRaycastResult;
+						} else {
+							return $elm$core$Maybe$Just(
+								{body: body, distance: raycastResult.distance, normal: raycastResult.normal, point: raycastResult.point});
+						}
+					} else {
+						return maybeClosestRaycastResult;
+					}
+				}),
+			$elm$core$Maybe$Nothing,
+			bodies);
+	});
+var $w0rm$elm_physics$Physics$World$raycast = F2(
+	function (ray, _v0) {
+		var world = _v0.a;
+		var _v1 = A2(
+			$w0rm$elm_physics$Internal$World$raycast,
+			{
+				direction: $ianmackenzie$elm_geometry$Direction3d$unwrap(
+					$ianmackenzie$elm_geometry$Axis3d$direction(ray)),
+				from: $ianmackenzie$elm_geometry$Point3d$toMeters(
+					$ianmackenzie$elm_geometry$Axis3d$originPoint(ray))
+			},
+			world);
+		if (_v1.$ === 'Just') {
+			var body = _v1.a.body;
+			var point = _v1.a.point;
+			var normal = _v1.a.normal;
+			return $elm$core$Maybe$Just(
+				{
+					body: $w0rm$elm_physics$Internal$Body$Protected(body),
+					normal: $ianmackenzie$elm_geometry$Direction3d$unsafe(
+						A2(
+							$w0rm$elm_physics$Internal$Transform3d$directionRelativeTo,
+							A2(
+								$w0rm$elm_physics$Internal$Transform3d$placeIn,
+								body.transform3d,
+								$w0rm$elm_physics$Internal$Transform3d$inverse(body.centerOfMassTransform3d)),
+							normal)),
+					point: $ianmackenzie$elm_geometry$Point3d$fromMeters(
+						A2(
+							$w0rm$elm_physics$Internal$Transform3d$pointRelativeTo,
+							A2(
+								$w0rm$elm_physics$Internal$Transform3d$placeIn,
+								body.transform3d,
+								$w0rm$elm_physics$Internal$Transform3d$inverse(body.centerOfMassTransform3d)),
+							point))
+				});
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
 var $elm$core$Basics$sin = _Basics_sin;
 var $ianmackenzie$elm_geometry$Direction3d$rotateAround = F3(
 	function (_v0, _v1, _v2) {
@@ -9804,10 +10090,6 @@ var $author$project$Main$rotateCannon = F2(
 					$ianmackenzie$elm_units$Angle$degrees(magnitude * 1.0))
 			});
 	});
-var $ianmackenzie$elm_geometry$Axis3d$direction = function (_v0) {
-	var axis = _v0.a;
-	return axis.direction;
-};
 var $w0rm$elm_physics$Internal$Vector3$normalize = function (v3) {
 	var len = $w0rm$elm_physics$Internal$Vector3$length(v3);
 	return {x: v3.x / len, y: v3.y / len, z: v3.z / len};
@@ -9903,10 +10185,6 @@ var $w0rm$elm_physics$Internal$BroadPhase$bodiesMayContact = F2(
 		var boundingRadiuses = body1.boundingSphereRadius + body2.boundingSphereRadius;
 		return (((boundingRadiuses * boundingRadiuses) - distanceSquared) > 0) && (!(!(body1.mass + body2.mass)));
 	});
-var $w0rm$elm_physics$Internal$Vector3$dot = F2(
-	function (a, b) {
-		return ((a.x * b.x) + (a.y * b.y)) + (a.z * b.z);
-	});
 var $w0rm$elm_physics$Collision$ConvexConvex$bestFaceHelp = F4(
 	function (separatingAxis, faces, currentBestFace, currentBestDistance) {
 		bestFaceHelp:
@@ -9975,42 +10253,6 @@ var $w0rm$elm_physics$Collision$ConvexConvex$clipFaceAgainstPlaneAdd = F5(
 				$elm$core$List$cons,
 				A3($w0rm$elm_physics$Internal$Vector3$lerp, nDotPrev / (nDotPrev - nDotNext), prev, next),
 				result)) : result);
-	});
-var $w0rm$elm_physics$Shapes$Convex$foldFaceEdgesHelp = F4(
-	function (fn, seed, resultSeed, vertices) {
-		foldFaceEdgesHelp:
-		while (true) {
-			if (vertices.b) {
-				var el1 = vertices.a;
-				var rest1 = vertices.b;
-				if (!rest1.b) {
-					return A3(fn, el1, seed, resultSeed);
-				} else {
-					var el2 = rest1.a;
-					var $temp$fn = fn,
-						$temp$seed = seed,
-						$temp$resultSeed = A3(fn, el1, el2, resultSeed),
-						$temp$vertices = rest1;
-					fn = $temp$fn;
-					seed = $temp$seed;
-					resultSeed = $temp$resultSeed;
-					vertices = $temp$vertices;
-					continue foldFaceEdgesHelp;
-				}
-			} else {
-				return resultSeed;
-			}
-		}
-	});
-var $w0rm$elm_physics$Shapes$Convex$foldFaceEdges = F3(
-	function (fn, resultSeed, vertices) {
-		if (vertices.b && vertices.b.b) {
-			var first = vertices.a;
-			var _v1 = vertices.b;
-			return A4($w0rm$elm_physics$Shapes$Convex$foldFaceEdgesHelp, fn, first, resultSeed, vertices);
-		} else {
-			return resultSeed;
-		}
 	});
 var $w0rm$elm_physics$Collision$ConvexConvex$clipAgainstAdjacentFaces = F2(
 	function (_v0, faceVertices) {
@@ -12176,47 +12418,68 @@ var $author$project$Main$applyTick = F2(
 						} else {
 							var _v27 = maybePlayerTank.a;
 							var playerTankBody = _v27.a;
-							var targetPoint = A2(
-								$ianmackenzie$elm_geometry$Point3d$projectInto,
-								$ianmackenzie$elm_geometry$SketchPlane3d$xy,
-								$ianmackenzie$elm_geometry$Frame3d$originPoint(
-									$w0rm$elm_physics$Physics$Body$frame(playerTankBody)));
-							var bunkerPoint = A2(
-								$ianmackenzie$elm_geometry$Point3d$projectInto,
-								$ianmackenzie$elm_geometry$SketchPlane3d$xy,
-								$ianmackenzie$elm_geometry$Frame3d$originPoint(
-									$w0rm$elm_physics$Physics$Body$frame(body)));
-							var _v28 = A2($ianmackenzie$elm_geometry$Direction2d$from, bunkerPoint, targetPoint);
-							if (_v28.$ === 'Nothing') {
-								return body;
+							var targetPoint3d = $ianmackenzie$elm_geometry$Frame3d$originPoint(
+								$w0rm$elm_physics$Physics$Body$frame(playerTankBody));
+							var targetPoint2d = A2($ianmackenzie$elm_geometry$Point3d$projectInto, $ianmackenzie$elm_geometry$SketchPlane3d$xy, targetPoint3d);
+							var bunkerPoint3d = $ianmackenzie$elm_geometry$Frame3d$originPoint(
+								$w0rm$elm_physics$Physics$Body$frame(body));
+							var raycast = function () {
+								var _v30 = A2($ianmackenzie$elm_geometry$Direction3d$from, bunkerPoint3d, targetPoint3d);
+								if (_v30.$ === 'Nothing') {
+									return $elm$core$Maybe$Nothing;
+								} else {
+									var dir = _v30.a;
+									return A2(
+										$w0rm$elm_physics$Physics$World$raycast,
+										A2($ianmackenzie$elm_geometry$Axis3d$through, bunkerPoint3d, dir),
+										model.physicsWorld);
+								}
+							}();
+							var bunkerPoint2d = A2($ianmackenzie$elm_geometry$Point3d$projectInto, $ianmackenzie$elm_geometry$SketchPlane3d$xy, bunkerPoint3d);
+							var _v28 = _Utils_Tuple2(
+								A2($ianmackenzie$elm_geometry$Direction2d$from, bunkerPoint2d, targetPoint2d),
+								raycast);
+							if ((_v28.a.$ === 'Just') && (_v28.b.$ === 'Just')) {
+								var dirToTarget = _v28.a.a;
+								var raycastResult = _v28.b.a;
+								var _v29 = $w0rm$elm_physics$Physics$Body$data(raycastResult.body);
+								if (_v29.$ === 'ETank') {
+									var id = _v29.a;
+									if (_Utils_eq(id, model.playerId)) {
+										var normalizedTargetAngle = $ianmackenzie$elm_units$Angle$normalize(
+											$ianmackenzie$elm_geometry$Direction2d$toAngle(dirToTarget));
+										var normalizedCannonAngle = $ianmackenzie$elm_units$Angle$normalize(bunker.cannonRotation);
+										var angleDifference = A2($ianmackenzie$elm_units$Quantity$difference, normalizedTargetAngle, normalizedCannonAngle);
+										var maxToRotate = A2(
+											$ianmackenzie$elm_units$Angle$atan2,
+											$ianmackenzie$elm_units$Angle$radians(
+												$ianmackenzie$elm_units$Angle$sin(angleDifference)),
+											$ianmackenzie$elm_units$Angle$radians(
+												$ianmackenzie$elm_units$Angle$cos(angleDifference)));
+										var toRotate = ($ianmackenzie$elm_units$Angle$inDegrees(maxToRotate) < 0) ? A2(
+											$ianmackenzie$elm_units$Quantity$max,
+											$ianmackenzie$elm_units$Angle$degrees(-0.5),
+											maxToRotate) : A2(
+											$ianmackenzie$elm_units$Quantity$min,
+											$ianmackenzie$elm_units$Angle$degrees(0.5),
+											maxToRotate);
+										return A2(
+											$w0rm$elm_physics$Physics$Body$withData,
+											$author$project$Main$EBunker(
+												_Utils_update(
+													bunker,
+													{
+														cannonRotation: A2($ianmackenzie$elm_units$Quantity$plus, normalizedCannonAngle, toRotate)
+													})),
+											body);
+									} else {
+										return body;
+									}
+								} else {
+									return body;
+								}
 							} else {
-								var dirToTarget = _v28.a;
-								var normalizedTargetAngle = $ianmackenzie$elm_units$Angle$normalize(
-									$ianmackenzie$elm_geometry$Direction2d$toAngle(dirToTarget));
-								var normalizedCannonAngle = $ianmackenzie$elm_units$Angle$normalize(bunker.cannonRotation);
-								var angleDifference = A2($ianmackenzie$elm_units$Quantity$difference, normalizedTargetAngle, normalizedCannonAngle);
-								var maxToRotate = A2(
-									$ianmackenzie$elm_units$Angle$atan2,
-									$ianmackenzie$elm_units$Angle$radians(
-										$ianmackenzie$elm_units$Angle$sin(angleDifference)),
-									$ianmackenzie$elm_units$Angle$radians(
-										$ianmackenzie$elm_units$Angle$cos(angleDifference)));
-								var toRotate = ($ianmackenzie$elm_units$Angle$inDegrees(maxToRotate) < 0) ? A2(
-									$ianmackenzie$elm_units$Quantity$max,
-									$ianmackenzie$elm_units$Angle$degrees(-0.5),
-									maxToRotate) : A2(
-									$ianmackenzie$elm_units$Quantity$min,
-									$ianmackenzie$elm_units$Angle$degrees(0.5),
-									maxToRotate);
-								return A2(
-									$w0rm$elm_physics$Physics$Body$withData,
-									$author$project$Main$EBunker(
-										_Utils_update(
-											bunker,
-											{
-												cannonRotation: A2($ianmackenzie$elm_units$Quantity$plus, normalizedCannonAngle, toRotate)
-											})),
-									body);
+								return body;
 							}
 						}
 					default:
@@ -17404,10 +17667,6 @@ var $ianmackenzie$elm_3d_scene$Scene3d$Primitives$cylinder = function () {
 		$ianmackenzie$elm_3d_scene$Scene3d$Mesh$indexedFaces(triangularMesh));
 }();
 var $ianmackenzie$elm_3d_scene$Scene3d$Primitives$cylinderShadow = $ianmackenzie$elm_3d_scene$Scene3d$Mesh$shadow($ianmackenzie$elm_3d_scene$Scene3d$Primitives$cylinder);
-var $ianmackenzie$elm_geometry$Axis3d$originPoint = function (_v0) {
-	var axis = _v0.a;
-	return axis.originPoint;
-};
 var $ianmackenzie$elm_geometry$Frame3d$fromZAxis = function (givenZAxis) {
 	var givenZDirection = $ianmackenzie$elm_geometry$Axis3d$direction(givenZAxis);
 	var _v0 = $ianmackenzie$elm_geometry$Direction3d$perpendicularBasis(givenZDirection);
@@ -17554,7 +17813,6 @@ var $ianmackenzie$elm_geometry$Cylinder3d$startingAt = F3(
 				radius: $ianmackenzie$elm_units$Quantity$abs(_arguments.radius)
 			});
 	});
-var $ianmackenzie$elm_geometry$Axis3d$y = A2($ianmackenzie$elm_geometry$Axis3d$through, $ianmackenzie$elm_geometry$Point3d$origin, $ianmackenzie$elm_geometry$Direction3d$y);
 var $ianmackenzie$elm_geometry$Axis3d$z = A2($ianmackenzie$elm_geometry$Axis3d$through, $ianmackenzie$elm_geometry$Point3d$origin, $ianmackenzie$elm_geometry$Direction3d$z);
 var $author$project$Main$viewBunker = F2(
 	function (body, bunker) {
@@ -17587,19 +17845,16 @@ var $author$project$Main$viewBunker = F2(
 							$ianmackenzie$elm_geometry$Axis3d$z,
 							bunker.cannonRotation,
 							A3(
-								$ianmackenzie$elm_geometry$Cylinder3d$rotateAround,
-								$ianmackenzie$elm_geometry$Axis3d$y,
-								bunker.cannonPitch,
-								A3(
-									$ianmackenzie$elm_geometry$Cylinder3d$startingAt,
-									A3($ianmackenzie$elm_geometry$Point3d$meters, 0.5, 0.0, 0.125),
-									$ianmackenzie$elm_geometry$Direction3d$positiveX,
-									{
-										length: $ianmackenzie$elm_units$Length$meters(1.0),
-										radius: $ianmackenzie$elm_units$Length$meters(0.125)
-									})))))
+								$ianmackenzie$elm_geometry$Cylinder3d$startingAt,
+								A3($ianmackenzie$elm_geometry$Point3d$meters, 0.5, 0.0, 0.125),
+								$ianmackenzie$elm_geometry$Direction3d$positiveX,
+								{
+									length: $ianmackenzie$elm_units$Length$meters(1.0),
+									radius: $ianmackenzie$elm_units$Length$meters(0.125)
+								}))))
 				]));
 	});
+var $ianmackenzie$elm_geometry$Axis3d$y = A2($ianmackenzie$elm_geometry$Axis3d$through, $ianmackenzie$elm_geometry$Point3d$origin, $ianmackenzie$elm_geometry$Direction3d$y);
 var $author$project$Main$viewTank = F2(
 	function (body, tank) {
 		var bodyPosition = $w0rm$elm_physics$Physics$Body$frame(body);

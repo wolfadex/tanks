@@ -90,7 +90,7 @@ type alias Tank =
 
 type alias Bunker =
     { cannonRotation : Angle
-    , cannonPitch : Angle
+    , lastCannonFiredAt : Float
     }
 
 
@@ -207,7 +207,7 @@ init () =
                         (Sphere3d.atPoint Point3d.origin (Length.meters 1.0))
                         (EBunker
                             { cannonRotation = Angle.degrees 0
-                            , cannonPitch = Angle.degrees 0
+                            , lastCannonFiredAt = 0
                             }
                         )
                         |> Physics.Body.moveTo (Point3d.meters 15 0 0)
@@ -218,7 +218,7 @@ init () =
                         (Sphere3d.atPoint Point3d.origin (Length.meters 1.0))
                         (EBunker
                             { cannonRotation = Angle.degrees 0
-                            , cannonPitch = Angle.degrees 0
+                            , lastCannonFiredAt = 0
                             }
                         )
                         |> Physics.Body.moveTo (Point3d.meters -15 0 0)
@@ -402,54 +402,75 @@ applyTick deltaMs model =
 
                                     Just ( playerTankBody, _ ) ->
                                         let
-                                            targetPoint =
+                                            targetPoint3d =
                                                 Physics.Body.frame playerTankBody
                                                     |> Frame3d.originPoint
-                                                    |> Point3d.projectInto SketchPlane3d.xy
 
-                                            bunkerPoint =
+                                            bunkerPoint3d =
                                                 Physics.Body.frame body
                                                     |> Frame3d.originPoint
-                                                    |> Point3d.projectInto SketchPlane3d.xy
+
+                                            targetPoint2d =
+                                                Point3d.projectInto SketchPlane3d.xy targetPoint3d
+
+                                            bunkerPoint2d =
+                                                Point3d.projectInto SketchPlane3d.xy bunkerPoint3d
+
+                                            raycast =
+                                                case Direction3d.from bunkerPoint3d targetPoint3d of
+                                                    Nothing ->
+                                                        Nothing
+
+                                                    Just dir ->
+                                                        Physics.World.raycast (Axis3d.through bunkerPoint3d dir) model.physicsWorld
                                         in
-                                        case Direction2d.from bunkerPoint targetPoint of
-                                            Nothing ->
-                                                body
+                                        case ( Direction2d.from bunkerPoint2d targetPoint2d, raycast ) of
+                                            ( Just dirToTarget, Just raycastResult ) ->
+                                                case Physics.Body.data raycastResult.body of
+                                                    ETank id _ ->
+                                                        if id == model.playerId then
+                                                            let
+                                                                normalizedTargetAngle : Angle
+                                                                normalizedTargetAngle =
+                                                                    Angle.normalize (Direction2d.toAngle dirToTarget)
 
-                                            Just dirToTarget ->
-                                                let
-                                                    normalizedTargetAngle : Angle
-                                                    normalizedTargetAngle =
-                                                        Angle.normalize (Direction2d.toAngle dirToTarget)
+                                                                normalizedCannonAngle : Angle
+                                                                normalizedCannonAngle =
+                                                                    Angle.normalize bunker.cannonRotation
 
-                                                    normalizedCannonAngle : Angle
-                                                    normalizedCannonAngle =
-                                                        Angle.normalize bunker.cannonRotation
+                                                                angleDifference : Angle
+                                                                angleDifference =
+                                                                    Quantity.difference normalizedTargetAngle normalizedCannonAngle
 
-                                                    angleDifference : Angle
-                                                    angleDifference =
-                                                        Quantity.difference normalizedTargetAngle normalizedCannonAngle
+                                                                maxToRotate : Angle
+                                                                maxToRotate =
+                                                                    Angle.atan2 (Angle.radians (Angle.sin angleDifference)) (Angle.radians (Angle.cos angleDifference))
 
-                                                    maxToRotate : Angle
-                                                    maxToRotate =
-                                                        Angle.atan2 (Angle.radians (Angle.sin angleDifference)) (Angle.radians (Angle.cos angleDifference))
+                                                                toRotate : Angle
+                                                                toRotate =
+                                                                    if Angle.inDegrees maxToRotate < 0 then
+                                                                        Quantity.max (Angle.degrees -0.5) maxToRotate
 
-                                                    toRotate : Angle
-                                                    toRotate =
-                                                        if Angle.inDegrees maxToRotate < 0 then
-                                                            Quantity.max (Angle.degrees -0.5) maxToRotate
+                                                                    else
+                                                                        Quantity.min (Angle.degrees 0.5) maxToRotate
+                                                            in
+                                                            Physics.Body.withData
+                                                                (EBunker
+                                                                    { bunker
+                                                                        | cannonRotation =
+                                                                            Quantity.plus normalizedCannonAngle toRotate
+                                                                    }
+                                                                )
+                                                                body
 
                                                         else
-                                                            Quantity.min (Angle.degrees 0.5) maxToRotate
-                                                in
-                                                Physics.Body.withData
-                                                    (EBunker
-                                                        { bunker
-                                                            | cannonRotation =
-                                                                Quantity.plus normalizedCannonAngle toRotate
-                                                        }
-                                                    )
-                                                    body
+                                                            body
+
+                                                    _ ->
+                                                        body
+
+                                            _ ->
+                                                body
 
                             _ ->
                                 body
@@ -806,7 +827,6 @@ viewBunker body bunker =
                 { radius = Length.meters 0.125
                 , length = Length.meters 1.0
                 }
-                |> Cylinder3d.rotateAround Axis3d.y bunker.cannonPitch
                 |> Cylinder3d.rotateAround Axis3d.z bunker.cannonRotation
                 |> Cylinder3d.placeIn topPosition
             )
