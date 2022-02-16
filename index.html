@@ -7054,14 +7054,11 @@ var $author$project$Main$ETank = F2(
 	function (a, b) {
 		return {$: 'ETank', a: a, b: b};
 	});
-var $author$project$Main$Ground = function (a) {
-	return {$: 'Ground', a: a};
-};
+var $author$project$Main$Ground = {$: 'Ground'};
 var $author$project$Main$Unpressed = {$: 'Unpressed'};
-var $author$project$Main$WallPermanent = F2(
-	function (a, b) {
-		return {$: 'WallPermanent', a: a, b: b};
-	});
+var $author$project$Main$WallPermanent = function (a) {
+	return {$: 'WallPermanent', a: a};
+};
 var $w0rm$elm_physics$Internal$World$Protected = function (a) {
 	return {$: 'Protected', a: a};
 };
@@ -8238,7 +8235,7 @@ var $author$project$Main$init = function (_v0) {
 			fireCannon: $author$project$Main$Unpressed,
 			forwardKey: $author$project$Main$Unpressed,
 			lastCannonFiredAt: 0,
-			nextId: 6,
+			nextId: 1,
 			physicsWorld: A2(
 				$w0rm$elm_physics$Physics$World$add,
 				A2(
@@ -8256,7 +8253,7 @@ var $author$project$Main$init = function (_v0) {
 								$ianmackenzie$elm_units$Length$meters(0.5))),
 						A2(
 							$author$project$Main$ETank,
-							5,
+							0,
 							{
 								cannonPitch: $ianmackenzie$elm_units$Angle$degrees(0),
 								cannonRotation: $ianmackenzie$elm_units$Angle$degrees(0),
@@ -8268,59 +8265,106 @@ var $author$project$Main$init = function (_v0) {
 					function () {
 						var block = A2(
 							$ianmackenzie$elm_geometry$Block3d$from,
-							A3($ianmackenzie$elm_geometry$Point3d$meters, -4, 10, 0),
-							A3($ianmackenzie$elm_geometry$Point3d$meters, 4, 11, 2));
+							A3($ianmackenzie$elm_geometry$Point3d$meters, -21, 20, 0),
+							A3($ianmackenzie$elm_geometry$Point3d$meters, 21, 21, 2));
 						return A2(
 							$w0rm$elm_physics$Physics$Body$block,
 							block,
-							A2($author$project$Main$WallPermanent, 4, block));
+							$author$project$Main$WallPermanent(block));
 					}(),
 					A2(
 						$w0rm$elm_physics$Physics$World$add,
 						function () {
 							var block = A2(
 								$ianmackenzie$elm_geometry$Block3d$from,
-								A3($ianmackenzie$elm_geometry$Point3d$meters, -10, -4, 0),
-								A3($ianmackenzie$elm_geometry$Point3d$meters, -11, 4, 2));
+								A3($ianmackenzie$elm_geometry$Point3d$meters, -20, -21, 0),
+								A3($ianmackenzie$elm_geometry$Point3d$meters, -21, 21, 2));
 							return A2(
 								$w0rm$elm_physics$Physics$Body$block,
 								block,
-								A2($author$project$Main$WallPermanent, 3, block));
+								$author$project$Main$WallPermanent(block));
 						}(),
 						A2(
 							$w0rm$elm_physics$Physics$World$add,
 							function () {
 								var block = A2(
 									$ianmackenzie$elm_geometry$Block3d$from,
-									A3($ianmackenzie$elm_geometry$Point3d$meters, 4, -10, 0),
-									A3($ianmackenzie$elm_geometry$Point3d$meters, -4, -11, 2));
+									A3($ianmackenzie$elm_geometry$Point3d$meters, 21, -20, 0),
+									A3($ianmackenzie$elm_geometry$Point3d$meters, -21, -21, 2));
 								return A2(
 									$w0rm$elm_physics$Physics$Body$block,
 									block,
-									A2($author$project$Main$WallPermanent, 2, block));
+									$author$project$Main$WallPermanent(block));
 							}(),
 							A2(
 								$w0rm$elm_physics$Physics$World$add,
 								function () {
 									var block = A2(
 										$ianmackenzie$elm_geometry$Block3d$from,
-										A3($ianmackenzie$elm_geometry$Point3d$meters, 10, 4, 0),
-										A3($ianmackenzie$elm_geometry$Point3d$meters, 11, -4, 2));
+										A3($ianmackenzie$elm_geometry$Point3d$meters, 20, 21, 0),
+										A3($ianmackenzie$elm_geometry$Point3d$meters, 21, -21, 2));
 									return A2(
 										$w0rm$elm_physics$Physics$Body$block,
 										block,
-										A2($author$project$Main$WallPermanent, 1, block));
+										$author$project$Main$WallPermanent(block));
 								}(),
 								A2(
 									$w0rm$elm_physics$Physics$World$add,
-									$w0rm$elm_physics$Physics$Body$plane(
-										$author$project$Main$Ground(0)),
-									A3(
-										$w0rm$elm_physics$Physics$World$withGravity,
-										$ianmackenzie$elm_units$Acceleration$metersPerSecondSquared(9.80665),
-										$ianmackenzie$elm_geometry$Direction3d$negativeZ,
-										$w0rm$elm_physics$Physics$World$empty))))))),
-			playerId: 5,
+									function () {
+										var block = A2(
+											$ianmackenzie$elm_geometry$Block3d$from,
+											A3($ianmackenzie$elm_geometry$Point3d$meters, -4, 10, 0),
+											A3($ianmackenzie$elm_geometry$Point3d$meters, 4, 11, 2));
+										return A2(
+											$w0rm$elm_physics$Physics$Body$block,
+											block,
+											$author$project$Main$WallPermanent(block));
+									}(),
+									A2(
+										$w0rm$elm_physics$Physics$World$add,
+										function () {
+											var block = A2(
+												$ianmackenzie$elm_geometry$Block3d$from,
+												A3($ianmackenzie$elm_geometry$Point3d$meters, -10, -4, 0),
+												A3($ianmackenzie$elm_geometry$Point3d$meters, -11, 4, 2));
+											return A2(
+												$w0rm$elm_physics$Physics$Body$block,
+												block,
+												$author$project$Main$WallPermanent(block));
+										}(),
+										A2(
+											$w0rm$elm_physics$Physics$World$add,
+											function () {
+												var block = A2(
+													$ianmackenzie$elm_geometry$Block3d$from,
+													A3($ianmackenzie$elm_geometry$Point3d$meters, 4, -10, 0),
+													A3($ianmackenzie$elm_geometry$Point3d$meters, -4, -11, 2));
+												return A2(
+													$w0rm$elm_physics$Physics$Body$block,
+													block,
+													$author$project$Main$WallPermanent(block));
+											}(),
+											A2(
+												$w0rm$elm_physics$Physics$World$add,
+												function () {
+													var block = A2(
+														$ianmackenzie$elm_geometry$Block3d$from,
+														A3($ianmackenzie$elm_geometry$Point3d$meters, 10, 4, 0),
+														A3($ianmackenzie$elm_geometry$Point3d$meters, 11, -4, 2));
+													return A2(
+														$w0rm$elm_physics$Physics$Body$block,
+														block,
+														$author$project$Main$WallPermanent(block));
+												}(),
+												A2(
+													$w0rm$elm_physics$Physics$World$add,
+													$w0rm$elm_physics$Physics$Body$plane($author$project$Main$Ground),
+													A3(
+														$w0rm$elm_physics$Physics$World$withGravity,
+														$ianmackenzie$elm_units$Acceleration$metersPerSecondSquared(9.80665),
+														$ianmackenzie$elm_geometry$Direction3d$negativeZ,
+														$w0rm$elm_physics$Physics$World$empty))))))))))),
+			playerId: 0,
 			rotateCannonClockwiseKey: $author$project$Main$Unpressed,
 			rotateCannonCounterClockwiseKey: $author$project$Main$Unpressed,
 			rotateClockwiseKey: $author$project$Main$Unpressed,
@@ -17331,7 +17375,7 @@ var $author$project$Main$viewEntity = function (body) {
 		case 'Ground':
 			return $ianmackenzie$elm_3d_scene$Scene3d$nothing;
 		case 'WallPermanent':
-			var block = _v0.b;
+			var block = _v0.a;
 			return A2(
 				$ianmackenzie$elm_3d_scene$Scene3d$blockWithShadow,
 				$ianmackenzie$elm_3d_scene$Scene3d$Material$metal(
@@ -17352,6 +17396,18 @@ var $ianmackenzie$elm_geometry$Direction3d$yz = function (_v0) {
 		});
 };
 var $author$project$Main$game3dScene = function (model) {
+	var maybePlayerBody = A2(
+		$author$project$Main$findInList,
+		function (body) {
+			var _v2 = $w0rm$elm_physics$Physics$Body$data(body);
+			if (_v2.$ === 'ETank') {
+				var id = _v2.a;
+				return _Utils_eq(model.playerId, id) ? $elm$core$Maybe$Just(body) : $elm$core$Maybe$Nothing;
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		},
+		$w0rm$elm_physics$Physics$World$bodies(model.physicsWorld));
 	var ground = A5(
 		$ianmackenzie$elm_3d_scene$Scene3d$quad,
 		$ianmackenzie$elm_3d_scene$Scene3d$Material$nonmetal(
@@ -17369,8 +17425,25 @@ var $author$project$Main$game3dScene = function (model) {
 			verticalFieldOfView: $ianmackenzie$elm_units$Angle$degrees(30),
 			viewpoint: $ianmackenzie$elm_3d_camera$Viewpoint3d$lookAt(
 				{
-					eyePoint: A3($ianmackenzie$elm_geometry$Point3d$meters, 0, 20, 20),
-					focalPoint: $ianmackenzie$elm_geometry$Point3d$origin,
+					eyePoint: function () {
+						if (maybePlayerBody.$ === 'Just') {
+							var playerBody = maybePlayerBody.a;
+							return A2(
+								$ianmackenzie$elm_geometry$Point3d$translateBy,
+								A3($ianmackenzie$elm_geometry$Vector3d$meters, 20, 20, 30),
+								$w0rm$elm_physics$Physics$Body$originPoint(playerBody));
+						} else {
+							return A3($ianmackenzie$elm_geometry$Point3d$meters, 20, 20, 30);
+						}
+					}(),
+					focalPoint: function () {
+						if (maybePlayerBody.$ === 'Just') {
+							var playerBody = maybePlayerBody.a;
+							return $w0rm$elm_physics$Physics$Body$originPoint(playerBody);
+						} else {
+							return $ianmackenzie$elm_geometry$Point3d$origin;
+						}
+					}(),
 					upDirection: $ianmackenzie$elm_geometry$Direction3d$positiveZ
 				})
 		});

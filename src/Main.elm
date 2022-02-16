@@ -62,9 +62,9 @@ type alias Model =
 
 
 type Entity
-    = Ground Int
+    = Ground
     | CannonBall Int
-    | WallPermanent Int (Block3d Meters WorldCoordinates)
+    | WallPermanent (Block3d Meters WorldCoordinates)
     | ETank Int Tank
 
 
@@ -83,13 +83,13 @@ type alias Tank =
 init : () -> ( Model, Cmd Msg )
 init () =
     ( { elapsedTime = 0
-      , nextId = 6
+      , nextId = 1
       , tank =
             { cannonRotation = Angle.degrees 0
             , cannonPitch = Angle.degrees 0
             , material = Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
             }
-      , playerId = 5
+      , playerId = 0
       , forwardKey = Unpressed
       , backwardKey = Unpressed
       , rotateClockwiseKey = Unpressed
@@ -103,34 +103,72 @@ init () =
       , physicsWorld =
             Physics.World.empty
                 |> Physics.World.withGravity (Acceleration.metersPerSecondSquared 9.80665) Direction3d.negativeZ
-                |> Physics.World.add (Physics.Body.plane (Ground 0))
+                |> Physics.World.add (Physics.Body.plane Ground)
+                -- Inner walls
                 |> Physics.World.add
                     (let
+                        block : Block3d Meters coordinates
                         block =
                             Block3d.from (Point3d.meters 10 4 0) (Point3d.meters 11 -4 2)
                      in
-                     Physics.Body.block block (WallPermanent 1 block)
+                     Physics.Body.block block (WallPermanent block)
                     )
                 |> Physics.World.add
                     (let
+                        block : Block3d Meters coordinates
                         block =
                             Block3d.from (Point3d.meters 4 -10 0) (Point3d.meters -4 -11 2)
                      in
-                     Physics.Body.block block (WallPermanent 2 block)
+                     Physics.Body.block block (WallPermanent block)
                     )
                 |> Physics.World.add
                     (let
+                        block : Block3d Meters coordinates
                         block =
                             Block3d.from (Point3d.meters -10 -4 0) (Point3d.meters -11 4 2)
                      in
-                     Physics.Body.block block (WallPermanent 3 block)
+                     Physics.Body.block block (WallPermanent block)
                     )
                 |> Physics.World.add
                     (let
+                        block : Block3d Meters coordinates
                         block =
                             Block3d.from (Point3d.meters -4 10 0) (Point3d.meters 4 11 2)
                      in
-                     Physics.Body.block block (WallPermanent 4 block)
+                     Physics.Body.block block (WallPermanent block)
+                    )
+                -- Outer walls
+                |> Physics.World.add
+                    (let
+                        block : Block3d Meters coordinates
+                        block =
+                            Block3d.from (Point3d.meters 20 21 0) (Point3d.meters 21 -21 2)
+                     in
+                     Physics.Body.block block (WallPermanent block)
+                    )
+                |> Physics.World.add
+                    (let
+                        block : Block3d Meters coordinates
+                        block =
+                            Block3d.from (Point3d.meters 21 -20 0) (Point3d.meters -21 -21 2)
+                     in
+                     Physics.Body.block block (WallPermanent block)
+                    )
+                |> Physics.World.add
+                    (let
+                        block : Block3d Meters coordinates
+                        block =
+                            Block3d.from (Point3d.meters -20 -21 0) (Point3d.meters -21 21 2)
+                     in
+                     Physics.Body.block block (WallPermanent block)
+                    )
+                |> Physics.World.add
+                    (let
+                        block : Block3d Meters coordinates
+                        block =
+                            Block3d.from (Point3d.meters -21 20 0) (Point3d.meters 21 21 2)
+                     in
+                     Physics.Body.block block (WallPermanent block)
                     )
                 |> Physics.World.add
                     (Physics.Body.block
@@ -140,7 +178,7 @@ init () =
                             , Length.meters 0.5
                             )
                         )
-                        (ETank 5
+                        (ETank 0
                             { cannonRotation = Angle.degrees 0
                             , cannonPitch = Angle.degrees 0
                             , material = Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
@@ -320,10 +358,10 @@ applyTick deltaMs model =
                 |> Physics.World.keepIf
                     (\body ->
                         case Physics.Body.data body of
-                            Ground _ ->
+                            Ground ->
                                 True
 
-                            WallPermanent _ _ ->
+                            WallPermanent _ ->
                                 True
 
                             ETank _ _ ->
@@ -522,19 +560,49 @@ view model =
 game3dScene : Model -> Html Msg
 game3dScene model =
     let
-        camera : Camera3d Meters coordinates
+        maybePlayerBody : Maybe (Body Entity)
+        maybePlayerBody =
+            Physics.World.bodies model.physicsWorld
+                |> findInList
+                    (\body ->
+                        case Physics.Body.data body of
+                            ETank id _ ->
+                                if model.playerId == id then
+                                    Just body
+
+                                else
+                                    Nothing
+
+                            _ ->
+                                Nothing
+                    )
+
+        camera : Camera3d Meters WorldCoordinates
         camera =
             Camera3d.perspective
                 { viewpoint =
                     Viewpoint3d.lookAt
-                        { focalPoint = Point3d.origin
-                        , eyePoint = Point3d.meters 0 20 20
+                        { focalPoint =
+                            case maybePlayerBody of
+                                Just playerBody ->
+                                    Physics.Body.originPoint playerBody
+
+                                Nothing ->
+                                    Point3d.origin
+                        , eyePoint =
+                            case maybePlayerBody of
+                                Just playerBody ->
+                                    Physics.Body.originPoint playerBody
+                                        |> Point3d.translateBy (Vector3d.meters 20 20 30)
+
+                                Nothing ->
+                                    Point3d.meters 20 20 30
                         , upDirection = Direction3d.positiveZ
                         }
                 , verticalFieldOfView = Angle.degrees 30
                 }
 
-        ground : Scene3d.Entity coordinates
+        ground : Scene3d.Entity WorldCoordinates
         ground =
             Scene3d.quad
                 (Scene3d.Material.nonmetal
@@ -578,10 +646,10 @@ viewEntity body =
                     |> Sphere3d.placeIn (Physics.Body.frame body)
                 )
 
-        Ground _ ->
+        Ground ->
             Scene3d.nothing
 
-        WallPermanent _ block ->
+        WallPermanent block ->
             Scene3d.blockWithShadow
                 (Scene3d.Material.metal { baseColor = Color.gray, roughness = 0.5 })
                 block
