@@ -12,6 +12,8 @@ import Color
 import Cylinder3d
 import Direction3d
 import Duration
+import Element exposing (..)
+import Element.Font as Font
 import Force
 import Frame3d
 import Html exposing (Html)
@@ -578,7 +580,10 @@ decodeKeyToAction =
 view : Model -> Document Msg
 view model =
     { title = "Tanks"
-    , body = [ game3dScene model ]
+    , body =
+        [ game3dScene model
+        , viewControls
+        ]
     }
 
 
@@ -727,3 +732,27 @@ viewTank body tank =
                 |> Cylinder3d.placeIn topPosition
             )
         ]
+
+
+viewControls : Html Msg
+viewControls =
+    layout
+        [ width fill
+        , height fill
+        , padding 16
+        , Font.family [ Font.monospace ]
+        ]
+        (column
+            []
+            [ el [ Font.underline ] (text "Controls:")
+            , text "Drive Forward ------------ W"
+            , text "Drive Backward ----------- S"
+            , text "Turn Clockwise ----------- D"
+            , text "Turn Counter-Clockwise --- A"
+            , text "Cannon Clockwise --------- E"
+            , text "Cannon Counter-Clockwise - Q"
+            , text "Pitch Cannon Up ---------- R"
+            , text "Pitch Cannon Down -------- F"
+            , text "Fire Cannon -------------- Space"
+            ]
+        )
