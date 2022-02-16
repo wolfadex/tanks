@@ -6,7 +6,7 @@ import Axis3d
 import Block3d exposing (Block3d)
 import Browser exposing (Document)
 import Browser.Dom
-import Browser.Events
+import Browser.Events exposing (Visibility(..))
 import Camera3d exposing (Camera3d)
 import Color
 import Cylinder3d
@@ -47,6 +47,7 @@ main =
 type alias Model =
     { elapsedTime : Float
     , windowSize : { width : Int, height : Int }
+    , windowVisible : Visibility
     , nextId : Int
     , tank : Tank
     , playerId : Int
@@ -87,6 +88,7 @@ init : () -> ( Model, Cmd Msg )
 init () =
     ( { elapsedTime = 0
       , windowSize = { width = 800, height = 600 }
+      , windowVisible = Visible
       , nextId = 1
       , tank =
             { cannonRotation = Angle.degrees 0
@@ -200,13 +202,19 @@ init () =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.batch
-        [ Browser.Events.onKeyDown (Json.Decode.map KeyDown Json.Decode.value)
-        , Browser.Events.onKeyUp (Json.Decode.map KeyUp Json.Decode.value)
-        , Browser.Events.onAnimationFrameDelta Tick
-        , Browser.Events.onResize WindowResize
-        ]
+subscriptions model =
+    case model.windowVisible of
+        Hidden ->
+            Browser.Events.onVisibilityChange WindowVisibilityChange
+
+        Visible ->
+            Sub.batch
+                [ Browser.Events.onKeyDown (Json.Decode.map KeyDown Json.Decode.value)
+                , Browser.Events.onKeyUp (Json.Decode.map KeyUp Json.Decode.value)
+                , Browser.Events.onAnimationFrameDelta Tick
+                , Browser.Events.onResize WindowResize
+                , Browser.Events.onVisibilityChange WindowVisibilityChange
+                ]
 
 
 type Msg
@@ -214,6 +222,7 @@ type Msg
     | KeyDown Value
     | KeyUp Value
     | WindowResize Int Int
+    | WindowVisibilityChange Visibility
 
 
 type GameAction
@@ -419,6 +428,9 @@ update msg model =
             ( applyTick deltaMs model
             , Cmd.none
             )
+
+        WindowVisibilityChange visible ->
+            ( { model | windowVisible = visible }, Cmd.none )
 
         WindowResize width height ->
             ( { model | windowSize = Debug.log "window size" { width = width, height = height } }, Cmd.none )

@@ -7056,6 +7056,7 @@ var $author$project$Main$ETank = F2(
 	});
 var $author$project$Main$Ground = {$: 'Ground'};
 var $author$project$Main$Unpressed = {$: 'Unpressed'};
+var $elm$browser$Browser$Events$Visible = {$: 'Visible'};
 var $author$project$Main$WallPermanent = function (a) {
 	return {$: 'WallPermanent', a: a};
 };
@@ -8378,7 +8379,8 @@ var $author$project$Main$init = function (_v0) {
 				material: $ianmackenzie$elm_3d_scene$Scene3d$Material$metal(
 					{baseColor: $avh4$elm_color$Color$lightBlue, roughness: 0.5})
 			},
-			windowSize: {height: 600, width: 800}
+			windowSize: {height: 600, width: 800},
+			windowVisible: $elm$browser$Browser$Events$Visible
 		},
 		A2(
 			$elm$core$Task$perform,
@@ -8398,6 +8400,9 @@ var $author$project$Main$KeyUp = function (a) {
 };
 var $author$project$Main$Tick = function (a) {
 	return {$: 'Tick', a: a};
+};
+var $author$project$Main$WindowVisibilityChange = function (a) {
+	return {$: 'WindowVisibilityChange', a: a};
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$browser$Browser$AnimationManager$Delta = function (a) {
@@ -8951,18 +8956,45 @@ var $elm$browser$Browser$Events$onResize = function (func) {
 				A2($elm$json$Json$Decode$field, 'innerWidth', $elm$json$Json$Decode$int),
 				A2($elm$json$Json$Decode$field, 'innerHeight', $elm$json$Json$Decode$int))));
 };
+var $elm$json$Json$Decode$bool = _Json_decodeBool;
+var $elm$browser$Browser$Events$Hidden = {$: 'Hidden'};
+var $elm$browser$Browser$Events$withHidden = F2(
+	function (func, isHidden) {
+		return func(
+			isHidden ? $elm$browser$Browser$Events$Hidden : $elm$browser$Browser$Events$Visible);
+	});
+var $elm$browser$Browser$Events$onVisibilityChange = function (func) {
+	var info = _Browser_visibilityInfo(_Utils_Tuple0);
+	return A3(
+		$elm$browser$Browser$Events$on,
+		$elm$browser$Browser$Events$Document,
+		info.change,
+		A2(
+			$elm$json$Json$Decode$map,
+			$elm$browser$Browser$Events$withHidden(func),
+			A2(
+				$elm$json$Json$Decode$field,
+				'target',
+				A2($elm$json$Json$Decode$field, info.hidden, $elm$json$Json$Decode$bool))));
+};
 var $elm$json$Json$Decode$value = _Json_decodeValue;
-var $author$project$Main$subscriptions = function (_v0) {
-	return $elm$core$Platform$Sub$batch(
-		_List_fromArray(
-			[
-				$elm$browser$Browser$Events$onKeyDown(
-				A2($elm$json$Json$Decode$map, $author$project$Main$KeyDown, $elm$json$Json$Decode$value)),
-				$elm$browser$Browser$Events$onKeyUp(
-				A2($elm$json$Json$Decode$map, $author$project$Main$KeyUp, $elm$json$Json$Decode$value)),
-				$elm$browser$Browser$Events$onAnimationFrameDelta($author$project$Main$Tick),
-				$elm$browser$Browser$Events$onResize($author$project$Main$WindowResize)
-			]));
+var $author$project$Main$subscriptions = function (model) {
+	var _v0 = model.windowVisible;
+	if (_v0.$ === 'Hidden') {
+		return $elm$browser$Browser$Events$onVisibilityChange($author$project$Main$WindowVisibilityChange);
+	} else {
+		return $elm$core$Platform$Sub$batch(
+			_List_fromArray(
+				[
+					$elm$browser$Browser$Events$onKeyDown(
+					A2($elm$json$Json$Decode$map, $author$project$Main$KeyDown, $elm$json$Json$Decode$value)),
+					$elm$browser$Browser$Events$onKeyUp(
+					A2($elm$json$Json$Decode$map, $author$project$Main$KeyUp, $elm$json$Json$Decode$value)),
+					$elm$browser$Browser$Events$onAnimationFrameDelta($author$project$Main$Tick),
+					$elm$browser$Browser$Events$onResize($author$project$Main$WindowResize),
+					$elm$browser$Browser$Events$onVisibilityChange($author$project$Main$WindowVisibilityChange)
+				]));
+	}
 };
 var $author$project$Main$Pressed = {$: 'Pressed'};
 var $author$project$Main$CannonBall = function (a) {
@@ -12079,6 +12111,13 @@ var $author$project$Main$update = F2(
 				var deltaMs = msg.a;
 				return _Utils_Tuple2(
 					A2($author$project$Main$applyTick, deltaMs, model),
+					$elm$core$Platform$Cmd$none);
+			case 'WindowVisibilityChange':
+				var visible = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{windowVisible: visible}),
 					$elm$core$Platform$Cmd$none);
 			case 'WindowResize':
 				var width = msg.a;
