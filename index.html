@@ -7050,14 +7050,18 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$document = _Browser_document;
-var $author$project$Main$ETank = function (a) {
-	return {$: 'ETank', a: a};
+var $author$project$Main$ETank = F2(
+	function (a, b) {
+		return {$: 'ETank', a: a, b: b};
+	});
+var $author$project$Main$Ground = function (a) {
+	return {$: 'Ground', a: a};
 };
-var $author$project$Main$Ground = {$: 'Ground'};
 var $author$project$Main$Unpressed = {$: 'Unpressed'};
-var $author$project$Main$WallPermanent = function (a) {
-	return {$: 'WallPermanent', a: a};
-};
+var $author$project$Main$WallPermanent = F2(
+	function (a, b) {
+		return {$: 'WallPermanent', a: a, b: b};
+	});
 var $w0rm$elm_physics$Internal$World$Protected = function (a) {
 	return {$: 'Protected', a: a};
 };
@@ -8250,16 +8254,15 @@ var $author$project$Main$init = function (_v0) {
 								$ianmackenzie$elm_units$Length$meters(2.0),
 								$ianmackenzie$elm_units$Length$meters(1.0),
 								$ianmackenzie$elm_units$Length$meters(0.5))),
-						{
-							id: 5,
-							type_: $author$project$Main$ETank(
-								{
-									cannonPitch: $ianmackenzie$elm_units$Angle$degrees(0),
-									cannonRotation: $ianmackenzie$elm_units$Angle$degrees(0),
-									material: $ianmackenzie$elm_3d_scene$Scene3d$Material$metal(
-										{baseColor: $avh4$elm_color$Color$lightBlue, roughness: 0.5})
-								})
-						})),
+						A2(
+							$author$project$Main$ETank,
+							5,
+							{
+								cannonPitch: $ianmackenzie$elm_units$Angle$degrees(0),
+								cannonRotation: $ianmackenzie$elm_units$Angle$degrees(0),
+								material: $ianmackenzie$elm_3d_scene$Scene3d$Material$metal(
+									{baseColor: $avh4$elm_color$Color$lightBlue, roughness: 0.5})
+							}))),
 				A2(
 					$w0rm$elm_physics$Physics$World$add,
 					function () {
@@ -8270,10 +8273,7 @@ var $author$project$Main$init = function (_v0) {
 						return A2(
 							$w0rm$elm_physics$Physics$Body$block,
 							block,
-							{
-								id: 4,
-								type_: $author$project$Main$WallPermanent(block)
-							});
+							A2($author$project$Main$WallPermanent, 4, block));
 					}(),
 					A2(
 						$w0rm$elm_physics$Physics$World$add,
@@ -8285,10 +8285,7 @@ var $author$project$Main$init = function (_v0) {
 							return A2(
 								$w0rm$elm_physics$Physics$Body$block,
 								block,
-								{
-									id: 3,
-									type_: $author$project$Main$WallPermanent(block)
-								});
+								A2($author$project$Main$WallPermanent, 3, block));
 						}(),
 						A2(
 							$w0rm$elm_physics$Physics$World$add,
@@ -8300,10 +8297,7 @@ var $author$project$Main$init = function (_v0) {
 								return A2(
 									$w0rm$elm_physics$Physics$Body$block,
 									block,
-									{
-										id: 2,
-										type_: $author$project$Main$WallPermanent(block)
-									});
+									A2($author$project$Main$WallPermanent, 2, block));
 							}(),
 							A2(
 								$w0rm$elm_physics$Physics$World$add,
@@ -8315,15 +8309,12 @@ var $author$project$Main$init = function (_v0) {
 									return A2(
 										$w0rm$elm_physics$Physics$Body$block,
 										block,
-										{
-											id: 1,
-											type_: $author$project$Main$WallPermanent(block)
-										});
+										A2($author$project$Main$WallPermanent, 1, block));
 								}(),
 								A2(
 									$w0rm$elm_physics$Physics$World$add,
 									$w0rm$elm_physics$Physics$Body$plane(
-										{id: 0, type_: $author$project$Main$Ground}),
+										$author$project$Main$Ground(0)),
 									A3(
 										$w0rm$elm_physics$Physics$World$withGravity,
 										$ianmackenzie$elm_units$Acceleration$metersPerSecondSquared(9.80665),
@@ -8900,7 +8891,9 @@ var $author$project$Main$subscriptions = function (_v0) {
 			]));
 };
 var $author$project$Main$Pressed = {$: 'Pressed'};
-var $author$project$Main$CannonBall = {$: 'CannonBall'};
+var $author$project$Main$CannonBall = function (a) {
+	return {$: 'CannonBall', a: a};
+};
 var $ianmackenzie$elm_units$Quantity$max = F2(
 	function (_v0, _v1) {
 		var x = _v0.a;
@@ -11736,15 +11729,11 @@ var $author$project$Main$applyTick = F2(
 						$author$project$Main$findInList,
 						function (body) {
 							var data = $w0rm$elm_physics$Physics$Body$data(body);
-							if (_Utils_eq(data.id, model.playerId)) {
-								var _v3 = data.type_;
-								if (_v3.$ === 'ETank') {
-									var tankData = _v3.a;
-									return $elm$core$Maybe$Just(
-										_Utils_Tuple2(body, tankData));
-								} else {
-									return $elm$core$Maybe$Nothing;
-								}
+							if (data.$ === 'ETank') {
+								var id = data.a;
+								var tankData = data.b;
+								return _Utils_eq(id, model.playerId) ? $elm$core$Maybe$Just(
+									_Utils_Tuple2(body, tankData)) : $elm$core$Maybe$Nothing;
 							} else {
 								return $elm$core$Maybe$Nothing;
 							}
@@ -11790,7 +11779,7 @@ var $author$project$Main$applyTick = F2(
 													$ianmackenzie$elm_geometry$Sphere3d$atPoint,
 													$ianmackenzie$elm_geometry$Point3d$origin,
 													$ianmackenzie$elm_units$Length$meters(0.25)),
-												{id: model.nextId, type_: $author$project$Main$CannonBall})));
+												$author$project$Main$CannonBall(model.nextId))));
 									return A4(
 										$w0rm$elm_physics$Physics$Body$applyImpulse,
 										A2(
@@ -11818,9 +11807,10 @@ var $author$project$Main$applyTick = F2(
 		var simulatedWorld = A2(
 			$w0rm$elm_physics$Physics$World$update,
 			function (body) {
-				var _v6 = $w0rm$elm_physics$Physics$Body$data(body).type_;
+				var _v6 = $w0rm$elm_physics$Physics$Body$data(body);
 				if (_v6.$ === 'ETank') {
-					var tank = _v6.a;
+					var id = _v6.a;
+					var tank = _v6.b;
 					return A2(
 						$author$project$Main$rotateTank,
 						function () {
@@ -11875,63 +11865,62 @@ var $author$project$Main$applyTick = F2(
 							}(),
 							A2(
 								$w0rm$elm_physics$Physics$Body$withData,
-								{
-									id: $w0rm$elm_physics$Physics$Body$data(body).id,
-									type_: $author$project$Main$ETank(
+								A2(
+									$author$project$Main$ETank,
+									id,
+									A2(
+										$author$project$Main$aimCannon,
+										function () {
+											var _v12 = _Utils_Tuple2(model.aimCannonUp, model.aimCannonDown);
+											_v12$2:
+											while (true) {
+												if (_v12.a.$ === 'Pressed') {
+													if (_v12.b.$ === 'Unpressed') {
+														var _v13 = _v12.a;
+														var _v14 = _v12.b;
+														return 1.0;
+													} else {
+														break _v12$2;
+													}
+												} else {
+													if (_v12.b.$ === 'Pressed') {
+														var _v15 = _v12.a;
+														var _v16 = _v12.b;
+														return -1.0;
+													} else {
+														break _v12$2;
+													}
+												}
+											}
+											return 0.0;
+										}(),
 										A2(
-											$author$project$Main$aimCannon,
+											$author$project$Main$rotateCannon,
 											function () {
-												var _v12 = _Utils_Tuple2(model.aimCannonUp, model.aimCannonDown);
-												_v12$2:
+												var _v7 = _Utils_Tuple2(model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey);
+												_v7$2:
 												while (true) {
-													if (_v12.a.$ === 'Pressed') {
-														if (_v12.b.$ === 'Unpressed') {
-															var _v13 = _v12.a;
-															var _v14 = _v12.b;
+													if (_v7.a.$ === 'Pressed') {
+														if (_v7.b.$ === 'Unpressed') {
+															var _v8 = _v7.a;
+															var _v9 = _v7.b;
 															return 1.0;
 														} else {
-															break _v12$2;
+															break _v7$2;
 														}
 													} else {
-														if (_v12.b.$ === 'Pressed') {
-															var _v15 = _v12.a;
-															var _v16 = _v12.b;
+														if (_v7.b.$ === 'Pressed') {
+															var _v10 = _v7.a;
+															var _v11 = _v7.b;
 															return -1.0;
 														} else {
-															break _v12$2;
+															break _v7$2;
 														}
 													}
 												}
 												return 0.0;
 											}(),
-											A2(
-												$author$project$Main$rotateCannon,
-												function () {
-													var _v7 = _Utils_Tuple2(model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey);
-													_v7$2:
-													while (true) {
-														if (_v7.a.$ === 'Pressed') {
-															if (_v7.b.$ === 'Unpressed') {
-																var _v8 = _v7.a;
-																var _v9 = _v7.b;
-																return 1.0;
-															} else {
-																break _v7$2;
-															}
-														} else {
-															if (_v7.b.$ === 'Pressed') {
-																var _v10 = _v7.a;
-																var _v11 = _v7.b;
-																return -1.0;
-															} else {
-																break _v7$2;
-															}
-														}
-													}
-													return 0.0;
-												}(),
-												tank)))
-								},
+											tank))),
 								body)));
 				} else {
 					return body;
@@ -11951,7 +11940,7 @@ var $author$project$Main$applyTick = F2(
 				physicsWorld: A2(
 					$w0rm$elm_physics$Physics$World$keepIf,
 					function (body) {
-						var _v5 = $w0rm$elm_physics$Physics$Body$data(body).type_;
+						var _v5 = $w0rm$elm_physics$Physics$Body$data(body);
 						switch (_v5.$) {
 							case 'Ground':
 								return true;
@@ -17325,7 +17314,7 @@ var $author$project$Main$viewTank = F2(
 				]));
 	});
 var $author$project$Main$viewEntity = function (body) {
-	var _v0 = $w0rm$elm_physics$Physics$Body$data(body).type_;
+	var _v0 = $w0rm$elm_physics$Physics$Body$data(body);
 	switch (_v0.$) {
 		case 'CannonBall':
 			return A2(
@@ -17342,14 +17331,14 @@ var $author$project$Main$viewEntity = function (body) {
 		case 'Ground':
 			return $ianmackenzie$elm_3d_scene$Scene3d$nothing;
 		case 'WallPermanent':
-			var block = _v0.a;
+			var block = _v0.b;
 			return A2(
 				$ianmackenzie$elm_3d_scene$Scene3d$blockWithShadow,
 				$ianmackenzie$elm_3d_scene$Scene3d$Material$metal(
 					{baseColor: $avh4$elm_color$Color$gray, roughness: 0.5}),
 				block);
 		default:
-			var tank = _v0.a;
+			var tank = _v0.b;
 			return A2($author$project$Main$viewTank, body, tank);
 	}
 };

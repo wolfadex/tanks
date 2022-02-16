@@ -61,17 +61,11 @@ type alias Model =
     }
 
 
-type alias Entity =
-    { id : Int
-    , type_ : EntityType
-    }
-
-
-type EntityType
-    = Ground
-    | CannonBall
-    | WallPermanent (Block3d Meters WorldCoordinates)
-    | ETank Tank
+type Entity
+    = Ground Int
+    | CannonBall Int
+    | WallPermanent Int (Block3d Meters WorldCoordinates)
+    | ETank Int Tank
 
 
 type KeyPressesd
@@ -109,55 +103,34 @@ init () =
       , physicsWorld =
             Physics.World.empty
                 |> Physics.World.withGravity (Acceleration.metersPerSecondSquared 9.80665) Direction3d.negativeZ
-                |> Physics.World.add
-                    (Physics.Body.plane
-                        { id = 0
-                        , type_ = Ground
-                        }
-                    )
+                |> Physics.World.add (Physics.Body.plane (Ground 0))
                 |> Physics.World.add
                     (let
                         block =
                             Block3d.from (Point3d.meters 10 4 0) (Point3d.meters 11 -4 2)
                      in
-                     Physics.Body.block
-                        block
-                        { id = 1
-                        , type_ = WallPermanent block
-                        }
+                     Physics.Body.block block (WallPermanent 1 block)
                     )
                 |> Physics.World.add
                     (let
                         block =
                             Block3d.from (Point3d.meters 4 -10 0) (Point3d.meters -4 -11 2)
                      in
-                     Physics.Body.block
-                        block
-                        { id = 2
-                        , type_ = WallPermanent block
-                        }
+                     Physics.Body.block block (WallPermanent 2 block)
                     )
                 |> Physics.World.add
                     (let
                         block =
                             Block3d.from (Point3d.meters -10 -4 0) (Point3d.meters -11 4 2)
                      in
-                     Physics.Body.block
-                        block
-                        { id = 3
-                        , type_ = WallPermanent block
-                        }
+                     Physics.Body.block block (WallPermanent 3 block)
                     )
                 |> Physics.World.add
                     (let
                         block =
                             Block3d.from (Point3d.meters -4 10 0) (Point3d.meters 4 11 2)
                      in
-                     Physics.Body.block
-                        block
-                        { id = 4
-                        , type_ = WallPermanent block
-                        }
+                     Physics.Body.block block (WallPermanent 4 block)
                     )
                 |> Physics.World.add
                     (Physics.Body.block
@@ -167,14 +140,12 @@ init () =
                             , Length.meters 0.5
                             )
                         )
-                        { id = 5
-                        , type_ =
-                            ETank
-                                { cannonRotation = Angle.degrees 0
-                                , cannonPitch = Angle.degrees 0
-                                , material = Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
-                                }
-                        }
+                        (ETank 5
+                            { cannonRotation = Angle.degrees 0
+                            , cannonPitch = Angle.degrees 0
+                            , material = Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
+                            }
+                        )
                         |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 1000))
                     )
       }
@@ -224,16 +195,16 @@ applyTick deltaMs model =
                                             data =
                                                 Physics.Body.data body
                                         in
-                                        if data.id == model.playerId then
-                                            case data.type_ of
-                                                ETank tankData ->
+                                        case data of
+                                            ETank id tankData ->
+                                                if id == model.playerId then
                                                     Just ( body, tankData )
 
-                                                _ ->
+                                                else
                                                     Nothing
 
-                                        else
-                                            Nothing
+                                            _ ->
+                                                Nothing
                                     )
                         of
                             Nothing ->
@@ -254,9 +225,7 @@ applyTick deltaMs model =
                                         cannonBallBody =
                                             Physics.Body.sphere
                                                 (Sphere3d.atPoint Point3d.origin (Length.meters 0.25))
-                                                { id = model.nextId
-                                                , type_ = CannonBall
-                                                }
+                                                (CannonBall model.nextId)
                                                 |> Physics.Body.moveTo (Frame3d.originPoint position)
                                                 |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 5.5))
                                      in
@@ -282,37 +251,35 @@ applyTick deltaMs model =
                 |> Physics.World.simulate (Duration.milliseconds deltaMs)
                 |> Physics.World.update
                     (\body ->
-                        case (Physics.Body.data body).type_ of
-                            ETank tank ->
+                        case Physics.Body.data body of
+                            ETank id tank ->
                                 Physics.Body.withData
-                                    { id = (Physics.Body.data body).id
-                                    , type_ =
-                                        ETank
-                                            (tank
-                                                |> rotateCannon
-                                                    (case ( model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey ) of
-                                                        ( Pressed, Unpressed ) ->
-                                                            1.0
+                                    (ETank id
+                                        (tank
+                                            |> rotateCannon
+                                                (case ( model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey ) of
+                                                    ( Pressed, Unpressed ) ->
+                                                        1.0
 
-                                                        ( Unpressed, Pressed ) ->
-                                                            -1.0
+                                                    ( Unpressed, Pressed ) ->
+                                                        -1.0
 
-                                                        _ ->
-                                                            0.0
-                                                    )
-                                                |> aimCannon
-                                                    (case ( model.aimCannonUp, model.aimCannonDown ) of
-                                                        ( Pressed, Unpressed ) ->
-                                                            1.0
+                                                    _ ->
+                                                        0.0
+                                                )
+                                            |> aimCannon
+                                                (case ( model.aimCannonUp, model.aimCannonDown ) of
+                                                    ( Pressed, Unpressed ) ->
+                                                        1.0
 
-                                                        ( Unpressed, Pressed ) ->
-                                                            -1.0
+                                                    ( Unpressed, Pressed ) ->
+                                                        -1.0
 
-                                                        _ ->
-                                                            0.0
-                                                    )
-                                            )
-                                    }
+                                                    _ ->
+                                                        0.0
+                                                )
+                                        )
+                                    )
                                     body
                                     |> moveTank
                                         (case ( model.forwardKey, model.backwardKey ) of
@@ -352,14 +319,14 @@ applyTick deltaMs model =
             simulatedWorld
                 |> Physics.World.keepIf
                     (\body ->
-                        case (Physics.Body.data body).type_ of
-                            Ground ->
+                        case Physics.Body.data body of
+                            Ground _ ->
                                 True
 
-                            WallPermanent _ ->
+                            WallPermanent _ _ ->
                                 True
 
-                            ETank _ ->
+                            ETank _ _ ->
                                 True
 
                             _ ->
@@ -383,7 +350,7 @@ findInList predicate list =
                     findInList predicate rest
 
 
-isInContact : Body { id : Int, type_ : EntityType } -> List (Physics.Contact.Contact { id : Int, type_ : EntityType }) -> Bool
+isInContact : Body Entity -> List (Physics.Contact.Contact Entity) -> Bool
 isInContact body contacts =
     case contacts of
         [] ->
@@ -603,23 +570,23 @@ game3dScene model =
 
 viewEntity : Body Entity -> Scene3d.Entity WorldCoordinates
 viewEntity body =
-    case (Physics.Body.data body).type_ of
-        CannonBall ->
+    case Physics.Body.data body of
+        CannonBall _ ->
             Scene3d.sphereWithShadow
                 (Scene3d.Material.metal { baseColor = Color.black, roughness = 0.5 })
                 (Sphere3d.atPoint Point3d.origin (Length.meters 0.25)
                     |> Sphere3d.placeIn (Physics.Body.frame body)
                 )
 
-        Ground ->
+        Ground _ ->
             Scene3d.nothing
 
-        WallPermanent block ->
+        WallPermanent _ block ->
             Scene3d.blockWithShadow
                 (Scene3d.Material.metal { baseColor = Color.gray, roughness = 0.5 })
                 block
 
-        ETank tank ->
+        ETank _ tank ->
             viewTank body tank
 
 
