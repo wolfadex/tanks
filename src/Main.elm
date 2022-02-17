@@ -55,7 +55,6 @@ type alias Model =
     , showControls : Visibility
     , windowSize : { width : Int, height : Int }
     , windowVisible : Visibility
-    , nextId : Int
     , tank : Tank
     , playerId : Int
     , forwardKey : KeyPressesd
@@ -76,8 +75,8 @@ type Entity
     = Ground
     | CannonBall
     | WallPermanent (Block3d Meters WorldCoordinates)
-    | ETank Int Tank
-    | EBunker Bunker
+    | ETank Int Tank Int
+    | EBunker Int Bunker Int
 
 
 type KeyPressesd
@@ -104,7 +103,6 @@ init () =
       , showControls = Hidden
       , windowSize = { width = 800, height = 600 }
       , windowVisible = Visible
-      , nextId = 1
       , tank =
             { cannonRotation = Angle.degrees 0
             , cannonPitch = Angle.degrees 0
@@ -199,11 +197,13 @@ init () =
                             , Length.meters 0.5
                             )
                         )
-                        (ETank 0
+                        (ETank
+                            0
                             { cannonRotation = Angle.degrees 0
                             , cannonPitch = Angle.degrees 0
                             , material = Scene3d.Material.metal { baseColor = Color.lightBlue, roughness = 0.5 }
                             }
+                            1
                         )
                         |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 1000))
                     )
@@ -211,9 +211,11 @@ init () =
                     (Physics.Body.sphere
                         (Sphere3d.atPoint Point3d.origin (Length.meters 1.0))
                         (EBunker
+                            0
                             { cannonRotation = Angle.degrees 0
                             , lastCannonFiredAt = 0
                             }
+                            1
                         )
                         |> Physics.Body.moveTo (Point3d.meters 15 0 0)
                         |> Physics.Body.withBehavior Physics.Body.static
@@ -222,9 +224,11 @@ init () =
                     (Physics.Body.sphere
                         (Sphere3d.atPoint Point3d.origin (Length.meters 1.0))
                         (EBunker
+                            1
                             { cannonRotation = Angle.degrees 0
                             , lastCannonFiredAt = 0
                             }
+                            1
                         )
                         |> Physics.Body.moveTo (Point3d.meters -15 0 0)
                         |> Physics.Body.withBehavior Physics.Body.static
@@ -288,7 +292,7 @@ applyTick deltaMs model =
                                 Physics.Body.data body
                         in
                         case data of
-                            ETank id tankData ->
+                            ETank id tankData _ ->
                                 if id == model.playerId then
                                     Just ( body, tankData )
 
@@ -299,13 +303,13 @@ applyTick deltaMs model =
                                 Nothing
                     )
 
-        ( cannonBallMaybeAdded, newLastCannonBallFireTime, nextId ) =
+        ( cannonBallMaybeAdded, newLastCannonBallFireTime ) =
             case model.fireCannon of
                 Pressed ->
                     if model.elapsedTime - model.lastCannonFiredAt > 100 then
                         case maybePlayerTank of
                             Nothing ->
-                                ( model.physicsWorld, model.lastCannonFiredAt, model.nextId )
+                                ( model.physicsWorld, model.lastCannonFiredAt )
 
                             Just ( playerTankBody, playerTankData ) ->
                                 ( Physics.World.add
@@ -334,79 +338,26 @@ applyTick deltaMs model =
                                     )
                                     model.physicsWorld
                                 , model.elapsedTime
-                                , model.nextId
                                 )
 
                     else
-                        ( model.physicsWorld, model.lastCannonFiredAt, model.nextId )
+                        ( model.physicsWorld, model.lastCannonFiredAt )
 
                 Unpressed ->
-                    ( model.physicsWorld, model.lastCannonFiredAt, model.nextId )
+                    ( model.physicsWorld, model.lastCannonFiredAt )
 
-        simulatedWorld =
-            cannonBallMaybeAdded
-                |> Physics.World.simulate (Duration.milliseconds deltaMs)
-                |> Physics.World.update
-                    (\body ->
-                        case Physics.Body.data body of
-                            ETank id tank ->
-                                Physics.Body.withData
-                                    (ETank id
-                                        (tank
-                                            |> rotateCannon
-                                                (case ( model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey ) of
-                                                    ( Pressed, Unpressed ) ->
-                                                        1.0
+        ( worldWithEnemyCannonBalls, bunkersThatFired ) =
+            case maybePlayerTank of
+                Nothing ->
+                    ( cannonBallMaybeAdded, [] )
 
-                                                    ( Unpressed, Pressed ) ->
-                                                        -1.0
-
-                                                    _ ->
-                                                        0.0
-                                                )
-                                            |> aimCannon
-                                                (case ( model.aimCannonUp, model.aimCannonDown ) of
-                                                    ( Pressed, Unpressed ) ->
-                                                        1.0
-
-                                                    ( Unpressed, Pressed ) ->
-                                                        -1.0
-
-                                                    _ ->
-                                                        0.0
-                                                )
-                                        )
-                                    )
-                                    body
-                                    |> moveTank
-                                        (case ( model.forwardKey, model.backwardKey ) of
-                                            ( Pressed, Unpressed ) ->
-                                                1.0
-
-                                            ( Unpressed, Pressed ) ->
-                                                -1.0
-
-                                            _ ->
-                                                0.0
-                                        )
-                                    |> rotateTank
-                                        (case ( model.rotateClockwiseKey, model.rotateCounterClockwiseKey ) of
-                                            ( Pressed, Unpressed ) ->
-                                                1.0
-
-                                            ( Unpressed, Pressed ) ->
-                                                -1.0
-
-                                            _ ->
-                                                0.0
-                                        )
-
-                            EBunker bunker ->
-                                case maybePlayerTank of
-                                    Nothing ->
-                                        body
-
-                                    Just ( playerTankBody, _ ) ->
+                Just ( playerTankBody, _ ) ->
+                    cannonBallMaybeAdded
+                        |> Physics.World.bodies
+                        |> List.filterMap
+                            (\body ->
+                                case Physics.Body.data body of
+                                    EBunker bunkerId bunker _ ->
                                         let
                                             targetPoint3d =
                                                 Physics.Body.frame playerTankBody
@@ -433,7 +384,7 @@ applyTick deltaMs model =
                                         case ( Direction2d.from bunkerPoint2d targetPoint2d, raycast ) of
                                             ( Just dirToTarget, Just raycastResult ) ->
                                                 case Physics.Body.data raycastResult.body of
-                                                    ETank id _ ->
+                                                    ETank id _ _ ->
                                                         if id == model.playerId then
                                                             let
                                                                 normalizedTargetAngle : Angle
@@ -447,50 +398,254 @@ applyTick deltaMs model =
                                                                 angleDifference : Angle
                                                                 angleDifference =
                                                                     Quantity.difference normalizedTargetAngle normalizedCannonAngle
-
-                                                                maxToRotate : Angle
-                                                                maxToRotate =
-                                                                    Angle.atan2 (Angle.radians (Angle.sin angleDifference)) (Angle.radians (Angle.cos angleDifference))
-
-                                                                toRotate : Angle
-                                                                toRotate =
-                                                                    if Angle.inDegrees maxToRotate < 0 then
-                                                                        Quantity.max (Angle.degrees -0.5) maxToRotate
-
-                                                                    else
-                                                                        Quantity.min (Angle.degrees 0.5) maxToRotate
                                                             in
-                                                            Physics.Body.withData
-                                                                (EBunker
-                                                                    { bunker
-                                                                        | cannonRotation =
-                                                                            Quantity.plus normalizedCannonAngle toRotate
-                                                                    }
-                                                                )
-                                                                body
+                                                            if Quantity.greaterThan (Quantity.abs angleDifference) (Angle.degrees 15) && model.elapsedTime - bunker.lastCannonFiredAt > 2000 then
+                                                                let
+                                                                    position : Frame3d.Frame3d Meters WorldCoordinates { defines : Physics.Coordinates.BodyCoordinates }
+                                                                    position =
+                                                                        Physics.Body.frame body
+                                                                            |> Frame3d.translateAlongOwn Frame3d.zAxis (Length.meters 0.5)
+                                                                            |> Frame3d.rotateAroundOwn Frame3d.zAxis bunker.cannonRotation
+                                                                            |> Frame3d.translateAlongOwn Frame3d.xAxis (Length.meters 1.6)
+
+                                                                    cannonBallBody : Body Entity
+                                                                    cannonBallBody =
+                                                                        Physics.Body.sphere (Sphere3d.atPoint Point3d.origin (Length.meters 0.25)) CannonBall
+                                                                            |> Physics.Body.moveTo (Frame3d.originPoint position)
+                                                                            |> Physics.Body.withBehavior (Physics.Body.dynamic (Mass.kilograms 5.5))
+
+                                                                    cannonBallEntity : Body Entity
+                                                                    cannonBallEntity =
+                                                                        Physics.Body.applyImpulse
+                                                                            (Force.newtons 150 |> Quantity.times (Duration.seconds 0.5))
+                                                                            (Frame3d.xDirection position)
+                                                                            (Physics.Body.originPoint cannonBallBody)
+                                                                            cannonBallBody
+                                                                in
+                                                                Just
+                                                                    ( cannonBallEntity, bunkerId )
+
+                                                            else
+                                                                Nothing
 
                                                         else
-                                                            body
+                                                            Nothing
 
                                                     _ ->
-                                                        body
+                                                        Nothing
 
                                             _ ->
-                                                body
+                                                Nothing
+
+                                    _ ->
+                                        Nothing
+                            )
+                        |> List.foldl
+                            (\( cannonBall, bunkerId ) ( world, bunkers ) ->
+                                ( Physics.World.add cannonBall world, bunkerId :: bunkers )
+                            )
+                            ( cannonBallMaybeAdded, [] )
+
+        isCannonBall : Body Entity -> Bool
+        isCannonBall body =
+            case Physics.Body.data body of
+                CannonBall ->
+                    True
+
+                _ ->
+                    False
+
+        simulatedWorld : World Entity
+        simulatedWorld =
+            Physics.World.simulate (Duration.milliseconds deltaMs) worldWithEnemyCannonBalls
+
+        contacts : List (Physics.Contact.Contact Entity)
+        contacts =
+            Physics.World.contacts simulatedWorld
+
+        updatedWorld : World Entity
+        updatedWorld =
+            simulatedWorld
+                |> Physics.World.update
+                    (\body ->
+                        case Physics.Body.data body of
+                            ETank id tank health ->
+                                Physics.Body.withData
+                                    (ETank
+                                        id
+                                        (tank
+                                            |> rotateCannon
+                                                (case ( model.rotateCannonClockwiseKey, model.rotateCannonCounterClockwiseKey ) of
+                                                    ( Pressed, Unpressed ) ->
+                                                        1.0
+
+                                                    ( Unpressed, Pressed ) ->
+                                                        -1.0
+
+                                                    _ ->
+                                                        0.0
+                                                )
+                                            |> aimCannon
+                                                (case ( model.aimCannonUp, model.aimCannonDown ) of
+                                                    ( Pressed, Unpressed ) ->
+                                                        1.0
+
+                                                    ( Unpressed, Pressed ) ->
+                                                        -1.0
+
+                                                    _ ->
+                                                        0.0
+                                                )
+                                        )
+                                        (if List.any isCannonBall (isContactedBy body contacts) then
+                                            0
+
+                                         else
+                                            health
+                                        )
+                                    )
+                                    body
+                                    |> moveTank
+                                        (case ( model.forwardKey, model.backwardKey ) of
+                                            ( Pressed, Unpressed ) ->
+                                                1.0
+
+                                            ( Unpressed, Pressed ) ->
+                                                -1.0
+
+                                            _ ->
+                                                0.0
+                                        )
+                                    |> rotateTank
+                                        (case ( model.rotateClockwiseKey, model.rotateCounterClockwiseKey ) of
+                                            ( Pressed, Unpressed ) ->
+                                                1.0
+
+                                            ( Unpressed, Pressed ) ->
+                                                -1.0
+
+                                            _ ->
+                                                0.0
+                                        )
+
+                            EBunker bunkerId bunker health ->
+                                if List.any isCannonBall (isContactedBy body contacts) then
+                                    Physics.Body.withData
+                                        (EBunker
+                                            bunkerId
+                                            bunker
+                                            (if List.any isCannonBall (isContactedBy body contacts) then
+                                                0
+
+                                             else
+                                                health
+                                            )
+                                        )
+                                        body
+
+                                else
+                                    case maybePlayerTank of
+                                        Nothing ->
+                                            body
+
+                                        Just ( playerTankBody, _ ) ->
+                                            let
+                                                targetPoint3d =
+                                                    Physics.Body.frame playerTankBody
+                                                        |> Frame3d.originPoint
+
+                                                bunkerPoint3d =
+                                                    Physics.Body.frame body
+                                                        |> Frame3d.originPoint
+
+                                                targetPoint2d =
+                                                    Point3d.projectInto SketchPlane3d.xy targetPoint3d
+
+                                                bunkerPoint2d =
+                                                    Point3d.projectInto SketchPlane3d.xy bunkerPoint3d
+
+                                                raycast =
+                                                    case Direction3d.from bunkerPoint3d targetPoint3d of
+                                                        Nothing ->
+                                                            Nothing
+
+                                                        Just dir ->
+                                                            Physics.World.raycast (Axis3d.through bunkerPoint3d dir) model.physicsWorld
+                                            in
+                                            case ( Direction2d.from bunkerPoint2d targetPoint2d, raycast ) of
+                                                ( Just dirToTarget, Just raycastResult ) ->
+                                                    case Physics.Body.data raycastResult.body of
+                                                        ETank id _ _ ->
+                                                            if id == model.playerId then
+                                                                let
+                                                                    normalizedTargetAngle : Angle
+                                                                    normalizedTargetAngle =
+                                                                        Angle.normalize (Direction2d.toAngle dirToTarget)
+
+                                                                    normalizedCannonAngle : Angle
+                                                                    normalizedCannonAngle =
+                                                                        Angle.normalize bunker.cannonRotation
+
+                                                                    angleDifference : Angle
+                                                                    angleDifference =
+                                                                        Quantity.difference normalizedTargetAngle normalizedCannonAngle
+
+                                                                    maxToRotate : Angle
+                                                                    maxToRotate =
+                                                                        Angle.atan2 (Angle.radians (Angle.sin angleDifference)) (Angle.radians (Angle.cos angleDifference))
+
+                                                                    toRotate : Angle
+                                                                    toRotate =
+                                                                        if Angle.inDegrees maxToRotate < 0 then
+                                                                            Quantity.max (Angle.degrees -0.5) maxToRotate
+
+                                                                        else
+                                                                            Quantity.min (Angle.degrees 0.5) maxToRotate
+                                                                in
+                                                                Physics.Body.withData
+                                                                    (EBunker
+                                                                        bunkerId
+                                                                        { bunker
+                                                                            | cannonRotation =
+                                                                                Quantity.plus normalizedCannonAngle toRotate
+                                                                            , lastCannonFiredAt =
+                                                                                if List.member bunkerId bunkersThatFired then
+                                                                                    model.elapsedTime + deltaMs
+
+                                                                                else
+                                                                                    bunker.lastCannonFiredAt
+                                                                        }
+                                                                        (if List.any isCannonBall (isContactedBy body contacts) then
+                                                                            0
+
+                                                                         else
+                                                                            health
+                                                                        )
+                                                                    )
+                                                                    body
+
+                                                            else
+                                                                body
+
+                                                        _ ->
+                                                            body
+
+                                                _ ->
+                                                    body
 
                             _ ->
                                 body
                     )
 
-        contacts =
-            Physics.World.contacts simulatedWorld
+        -- simulatedContacts : List (Physics.Contact.Contact Entity)
+        -- simulatedContacts =
+        --     Physics.World.contacts simulatedWorld
     in
     { model
         | elapsedTime = model.elapsedTime + deltaMs
-        , nextId = nextId
         , lastCannonFiredAt = newLastCannonBallFireTime
         , physicsWorld =
-            simulatedWorld
+            updatedWorld
                 |> Physics.World.keepIf
                     (\body ->
                         case Physics.Body.data body of
@@ -500,8 +655,11 @@ applyTick deltaMs model =
                             WallPermanent _ ->
                                 True
 
-                            ETank _ _ ->
-                                True
+                            ETank _ _ health ->
+                                health > 0
+
+                            EBunker _ _ health ->
+                                health > 0
 
                             _ ->
                                 not (isInContact body contacts)
@@ -538,6 +696,32 @@ isInContact body contacts =
             body == leftBody || body == rightBody || isInContact body rest
 
 
+isContactedBy : Body Entity -> List (Physics.Contact.Contact Entity) -> List (Body Entity)
+isContactedBy body contacts =
+    isContactedByHelper body contacts []
+
+
+isContactedByHelper : Body Entity -> List (Physics.Contact.Contact Entity) -> List (Body Entity) -> List (Body Entity)
+isContactedByHelper body contacts otherBodies =
+    case contacts of
+        [] ->
+            otherBodies
+
+        next :: rest ->
+            let
+                ( leftBody, rightBody ) =
+                    Physics.Contact.bodies next
+            in
+            if body == leftBody then
+                isContactedByHelper body rest (rightBody :: otherBodies)
+
+            else if body == rightBody then
+                isContactedByHelper body rest (leftBody :: otherBodies)
+
+            else
+                isContactedByHelper body rest otherBodies
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -563,7 +747,7 @@ update msg model =
             ( { model | windowVisible = visible }, Cmd.none )
 
         WindowResize width height ->
-            ( { model | windowSize = Debug.log "window size" { width = width, height = height } }, Cmd.none )
+            ( { model | windowSize = { width = width, height = height } }, Cmd.none )
 
         KeyDown value ->
             case Json.Decode.decodeValue decodeKeyToAction value of
@@ -723,7 +907,7 @@ game3dScene model =
                 |> findInList
                     (\body ->
                         case Physics.Body.data body of
-                            ETank id _ ->
+                            ETank id _ _ ->
                                 if model.playerId == id then
                                     Just body
 
@@ -811,10 +995,10 @@ viewEntity body =
                 (Scene3d.Material.metal { baseColor = Color.gray, roughness = 0.5 })
                 block
 
-        ETank _ tank ->
+        ETank _ tank _ ->
             viewTank body tank
 
-        EBunker bunker ->
+        EBunker _ bunker _ ->
             viewBunker body bunker
 
 
